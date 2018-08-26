@@ -5,7 +5,7 @@ import os
 from data_set import Dataset
 
 from model_wrap import ModelSettings
-from model_wrap import ModelClassification
+from model_wrap import ModelWrapper
 
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -37,7 +37,7 @@ data_train, data_test = dataset.split_train_and_test()
 config = ModelSettings(dataset.vocab)
 config.model_tag = model_tag
 #
-model = ModelClassification(config)
+model = ModelWrapper(config)
 model.prepare_graph_and_sess()
 #
 model.train_and_valid(data_train, data_test)

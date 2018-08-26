@@ -272,13 +272,17 @@ class Dataset():
         return batches 
     
     @staticmethod
-    def do_normalizing_batches(data_batches, min_seq_len = 5):
+    def do_normalizing_batches(data_batches, settings = None):
         """ padding batches
         """
+        min_seq_len = 5
+        if settings is not None:
+            min_seq_len = settings.min_seq_len
+        #
         batches_normed = []
         for batch in data_batches:
             x, y = batch
-            x_padded, x_len = Dataset.do_padding_data_converted(x)
+            x_padded, x_len = Dataset.do_padding_data_converted(x, min_seq_len)
             batches_normed.append( (x_padded, y) )
             
         return batches_normed
@@ -319,8 +323,12 @@ if __name__ == '__main__':
     train_batches = dataset.do_batching_data(data_train, 32)
     test_batches = dataset.do_batching_data(data_valid, 32)
     
-    train_batches_padded = dataset.do_normalizing_batches(train_batches, min_seq_len = 5)
-    test_batches_padded = dataset.do_normalizing_batches(test_batches, min_seq_len = 5)
+    from collections import namedtuple
+    Settings = namedtuple('Settings', ['min_seq_len'])
+    settings = Settings(5)
+    
+    train_batches_padded = dataset.do_normalizing_batches(train_batches, settings)
+    test_batches_padded = dataset.do_normalizing_batches(test_batches, settings)
     
     #
     dataset = Dataset()

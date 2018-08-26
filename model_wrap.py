@@ -50,93 +50,124 @@ class ModelSettings(object):
         #
         
     def trans_info_to_dict(self):
-        
+                
         info_dict = {}
         for name,value in vars(self).items():
-            # print('%s = %s'%(name,value))
             if not isinstance(value, (int, float, str, bool, list, dict, tuple)):
                 continue
             info_dict[str(name)] = value        
         return info_dict
 
 
-class ModelClassification(object):
-
+class ModelWrapper(object):
+    """
+        This class is written as TASK-INDEPENDENT as possible,
+        yet is kept as much readibility as possible.
+        
+        Only a few snippets need to be modified for different tasks.
+        Mainly of these snippets are about the inputs/outputs,
+        except that the one in __init__ is about the model graph.
+        
+        List of these snippets:
+        0, __init__ : model graph
+        1, prepare_for_prediction : inputs/outputs
+        2, predict : data preprocess, inputs/outputs
+        3, feed_data : feed data (inputs)
+        4, prepare_graph_and_sess : inputs/outputs
+        
+        Prerequisites:
+        1, feed data: arranged as (x_batch, y_batch) for a single batch
+        2, implement data batching functions:
+            valid_batches = Dataset.do_batching_data(valid_data, self.settings.batch_size_eval)
+            valid_batches = Dataset.do_normalizing_batches(valid_batches, self.settings) # min_seq_len
+        3, metric: accuracy-like metric
+        
+        # namedtuple
+        from collections import namedtuple
+        Settings = namedtuple('Settings', ['min_seq_len'])
+        settings = Settings(5)
+        
+    """
     def __init__(self, settings):
 
-        # config
-        self.settings = settings
-        
         # model graph
-        if self.settings.model_tag == 'cnn':
+        """ task-dependent
+        """
+        if settings.model_tag == 'cnn':
             from model_graph_cnn import build_graph
-        elif self.settings.model_tag == 'rnn':
+        elif settings.model_tag == 'rnn':
             from model_graph_rnn import build_graph
-        elif self.settings.model_tag == 'csm':
+        elif settings.model_tag == 'csm':
             from model_graph_csm import build_graph
         else:
-            assert False, 'ERROR: NOT supported model_tag: %s' % self.settings.model_tag
+            assert False, 'ERROR: NOT supported model_tag: %s' % settings.model_tag
         #
+        """ The codes after this in this function are task-independent,
+            so they could work without modification for different tasks.
+        """
+        # config
+        self.settings = settings
         self._build_graph = build_graph
         
         # model saving
-        self.model_dir = './model_' + self.settings.model_tag + '_' + str(self.settings.num_classes)
-        self.model_name = 'model_text_cls_' + str(self.settings.num_classes) 
+        self.model_dir = './model_' + self.settings.model_tag
+        self.model_name = 'model_' + self.settings.model_tag
         self.pb_file = os.path.join(self.model_dir + '_best', self.model_name + '.pb')
-		
-		 # log
+        
+        # log
         self.log_dir = './log'
         str_datetime = str(time.strftime("%Y-%m-%d-%H-%M"))
         
         self.log_path = os.path.join(self.log_dir, 
-                                     self.model_name + "_" + self.settings.model_tag +
-                                     "_" + str_datetime +".txt")
-        
-        print('log_path' + self.log_path)
+                                     self.model_name + "_" + str_datetime +".txt")
 
         # session info
         self.sess_config = tf.ConfigProto()
         self.sess_config.gpu_options.allow_growth = True
         
     def log_info(self, str_info):
-        
+        """ task-independent
+        """        
         if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
         with open(self.log_path, 'a', encoding='utf-8') as fp:
-            fp.write(str_info + '\n')
+            if len(str_info.strip()) == 0:
+                fp.write("\n")
+            else:
+                fp.write(time.strftime("%Y-%m-%d, %H:%M:%S: ") + str_info + "\n")
         #
         
+    # prediction
     def prepare_for_prediction(self, pb_file_path = None):
         #
         if pb_file_path is None: pb_file_path = self.pb_file 
-        #
         if not os.path.exists(pb_file_path):
             assert False, 'ERROR: %s NOT exists, when prepare_for_predict()' % pb_file_path
         #
         self._graph = tf.Graph()
-        #
         with self._graph.as_default():
-            #
             with open(pb_file_path, "rb") as f:
                 graph_def = tf.GraphDef()
                 graph_def.ParseFromString(f.read())
-                #
                 tf.import_graph_def(graph_def, name="")
                 #
             #
-            # change the input/output variables
-            #
+            """ only the input/output variables
+                are task-dependent
+            """
             self._x = self._graph.get_tensor_by_name('input_x:0')
             #
             self._logits = self._graph.get_tensor_by_name('score/logits:0')
             # 
-            print('graph loaded for prediction')
+            print('Graph loaded for prediction')
             #
         #
         self._sess = tf.Session(graph = self._graph, config = self.sess_config)
         #
     
     def predict(self, list_texts):
-        """ data: list of text string, 
+        """ task-dependent
+        
+            data: list of text string, 
             returned result: logits        
         """
         list_converted = Dataset.preprocess_wholesuitely(self.settings.vocab, list_texts)
@@ -146,6 +177,18 @@ class ModelClassification(object):
         logits = self._sess.run(self._logits, feed_dict = feed_dict)
         
         return logits
+    
+    # train and validation
+    def feed_data(self, x_batch, y_batch):
+        """ task-dependent
+        
+            keep the arguments not changed as x_batch, y_batch,
+            arrang the data to this form.
+            feed data, a single batch
+        """
+        feed_dict = { self._input_x: x_batch,
+                      self._input_y: y_batch }
+        return feed_dict
 
     def prepare_graph_and_sess(self):
 
@@ -153,16 +196,25 @@ class ModelClassification(object):
         self._graph = tf.Graph()
         with self._graph.as_default():
             #
+            self._learning_rate = tf.get_variable("lr", shape=[], dtype=tf.float32, trainable=False)
+            #
+            """ inputs/outputs, task-dependent            
+            """
             self._input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
             self._input_y = tf.placeholder(tf.int64, [None], name='input_y')
             #
-            self._learning_rate = tf.get_variable("lr", shape=[], dtype=tf.float32, trainable=False)
-            #
             self._inputs = self._input_x, self._input_y, self._learning_rate
-            self._outputs = self._build_graph(self.settings, self._inputs)
             #
-            self._logits, self._out_info, self._loss, self._optim = self._outputs
+            self._outputs = self._build_graph(self.settings, self._inputs)  # model graph
             #
+            self._logits, self._metric, self._loss, self._optim = self._outputs
+            #
+            """ The codes after this in this file are task-independent,
+                could work without modification for different tasks.
+                Single GPU mode.
+            """
+            #
+            # all params
             self.all_params = tf.trainable_variables()
             #
             # save info
@@ -187,24 +239,18 @@ class ModelClassification(object):
             self.log_info(str_info)
             print(str_info)
             #
-    
-    #       
-    def feed_data(self, x_batch, y_batch):
-        feed_dict = { self._input_x: x_batch,
-                      self._input_y: y_batch }
-        return feed_dict
-    
+    #
     def evaluate(self, eval_batches):
         
         data_len = 0        
         total_loss = 0.0
-        total_acc = 0.0
+        total_acc = 0.0  # accuracy, metric
         curr = 0
         for x_batch, y_batch in eval_batches:
             batch_len = len(x_batch)
             data_len += batch_len
             feed_dict = self.feed_data(x_batch, y_batch)            
-            loss, acc = self._sess.run([self._loss, self._out_info], feed_dict = feed_dict)
+            loss, acc = self._sess.run([self._loss, self._metric], feed_dict = feed_dict)
             total_loss += loss * batch_len
             total_acc += acc * batch_len            
             curr += 1
@@ -230,20 +276,20 @@ class ModelClassification(object):
             self._sess.run(tf.assign(self._learning_rate, tf.constant(lr, dtype=tf.float32)))
         
         valid_batches = Dataset.do_batching_data(valid_data, self.settings.batch_size_eval)
-        valid_batches = Dataset.do_normalizing_batches(valid_batches, self.settings.min_seq_len)
+        valid_batches = Dataset.do_normalizing_batches(valid_batches, self.settings)
         
         print('Creating model for evaluation ...')
         config_e = self.settings
         config_e.keep_prob = 1.0
-        model_e = ModelClassification(config_e)
+        model_e = ModelWrapper(config_e)
         model_e.prepare_graph_and_sess()
         
         flag_stop = False
         for epoch in range(self.settings.num_epochs):
-            print('Epoch:', epoch + 1)
+            print('Epoch: %d, training ...' % (epoch + 1) )
             
             train_batches = Dataset.do_batching_data(train_data, self.settings.batch_size)
-            train_batches = Dataset.do_normalizing_batches(train_batches, self.settings.min_seq_len)
+            train_batches = Dataset.do_normalizing_batches(train_batches, self.settings)
             
             for x_batch, y_batch in train_batches:
                 feed_dict = self.feed_data(x_batch, y_batch)
@@ -275,7 +321,8 @@ class ModelClassification(object):
                     
                     # stop
                     if total_batch - last_improved >= self.settings.patience_stop:
-                        str_info = "no improvement for a long time, stop optimization"
+                        str_info = "no improvement for a long time, stop optimization at curr_batch: %d" \
+                                    % total_batch
                         self.log_info(str_info)
                         print(str_info)
                         #
@@ -296,13 +343,14 @@ class ModelClassification(object):
                     # time
                     # time_cost = time.time() - start_time
                     #
-                    str_info = 'loss, acc, best_acc: %.6f, %.4f, %.4f' % (loss_val, acc_val, best_acc_val)
+                    str_info = 'loss, metric, best_metric: %.6f, %.4f, %.4f' % (loss_val,
+                                                                                acc_val, best_acc_val)
                     self.log_info(str_info)
-                    print(str_info)
+                    # print(str_info)
                     #
                     str_info = 'curr_batch: %d, lr: %f' % (total_batch, lr)
                     self.log_info(str_info)
-                    print(str_info)
+                    # print(str_info)
 
                 # optim
                 self._sess.run(self._optim, feed_dict = feed_dict)
@@ -312,17 +360,17 @@ class ModelClassification(object):
                 if total_batch % self.settings.save_per_batch == 0:
                     #s = session.run(merged_summary, feed_dict=feed_dict)
                     #writer.add_summary(s, total_batch)
-                    loss, acc = self._sess.run([self._loss, self._out_info], feed_dict = feed_dict)
+                    loss, acc = self._sess.run([self._loss, self._metric], feed_dict = feed_dict)
                     #
                     str_info = "epoch: %d" % (epoch + 1)
                     self.log_info(str_info)
-                    print(str_info)
+                    # print(str_info)
                     #
-                    str_info = "loss, acc of train: %f, %f" % (loss, acc)
+                    str_info = "loss, metric of train: %f, %f" % (loss, acc)
                     self.log_info(str_info)
                     self.log_info("")
-                    print(str_info)
-                    print()
+                    # print(str_info)
+                    # print()
                     
                     self._saver.save(self._sess,
                                     os.path.join(self.model_dir, self.model_name),
