@@ -18,6 +18,8 @@ A supervised learning project commonly has the following modules:
 
 The train/valid/pred procedures for supervised learnings are much the same for different tasks, so I tried to implement the model wrapper as task-independent as possible. Then one can focus on data preprocessing and model construction jobs.
 
+(in progress)
+
 ## References
 
 ...
