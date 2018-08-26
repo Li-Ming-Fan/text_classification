@@ -75,6 +75,8 @@ class ModelWrapper(object):
         3, feed_data : feed data (inputs)
         4, prepare_graph_and_sess : inputs/outputs
         
+        (These can also be implemented task-independent. In progress.)
+        
         Prerequisites:
         1, feed data: arranged as (x_batch, y_batch) for a single batch
         2, implement data batching functions:
