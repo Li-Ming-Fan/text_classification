@@ -58,16 +58,7 @@ class Dataset():
         
         data_seg = Dataset.clean_and_seg_list_raw(data_raw)
         data_converted = Dataset.convert_data_seg_to_ids(vocab, data_seg)
-        
-        data_check = []
-        for item in data_converted:
-            d = min_seq_len - len(item)
-            if d > 0:
-                item_p = item.copy()
-                item_p.extend( [0] * d)
-                data_check.append(item_p)
-            else:
-                data_check.append(item)                
+        data_check, _ = Dataset.do_padding_data_converted(data_converted, min_seq_len)               
                 
         return [ data_check ]
     
