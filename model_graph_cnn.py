@@ -8,9 +8,10 @@ Created on Sat Aug 25 13:49:51 2018
 
 import tensorflow as tf
 
-def build_graph(config, inputs):
-    
-    input_x, input_y, learning_rate = inputs
+def build_graph(config):
+
+    input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
+    input_y = tf.placeholder(tf.int64, [None], name='input_y')
 
     with tf.device('/cpu:0'):
         embedding = tf.get_variable('embedding',
@@ -54,16 +55,17 @@ def build_graph(config, inputs):
         #
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits,
                                                                        labels = input_y)
-        loss = tf.reduce_mean(cross_entropy)
-        
-    with tf.name_scope("optimize"):
-        #
-        optim = tf.train.AdamOptimizer(learning_rate = learning_rate).minimize(loss)
+        loss = tf.reduce_mean(cross_entropy, name = 'loss')
 
     with tf.name_scope("accuracy"):
         #
         correct_pred = tf.equal(input_y, y_pred_cls)
-        acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32))
+        acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name = 'metric')
     
-    return normed_logits, acc, loss, optim
+    #
+    print(normed_logits)
+    print(acc)
+    print(loss)
+    print()
+    #
 

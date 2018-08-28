@@ -4,8 +4,8 @@ import os
 
 from data_set import Dataset
 
-from model_wrap import ModelSettings
-from model_wrap import ModelClassification
+from model_settings import ModelSettings
+from model_wrapper import ModelWrapper
 
 
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
@@ -15,7 +15,12 @@ flag_load_data = True
 model_tag = 'cnn'
 #
 
+if model_tag == 'cnn':
+    from model_graph_cnn import build_graph
+
+    
 #
+# data
 pretrained_emb_file = None
 emb_dim = 64
 #
@@ -28,10 +33,13 @@ dataset.load_vocab_tokens_and_emb()
 
 #
 config = ModelSettings(dataset.vocab)
-config.keep_prob = 1.0
 config.model_tag = model_tag
+config.model_graph = build_graph
+config.is_train = True
+
 #
-model = ModelClassification(config)
+model = ModelWrapper(config)
+model.check_and_make()
 model.prepare_for_prediction()
 #
 
@@ -49,7 +57,10 @@ preds_list = []
 logits_list = []
 #
 for item in text_raw:
-    logits = model.predict([ item ])
+    out = model.predict([ item ])
+    print(out)
+    
+    logits = out[0]
     pred = list(logits[0]).index(max(logits[0]))
     #
     logits_list.append(logits[0])
@@ -76,6 +87,7 @@ if os.path.exists(filepath):
 workbook.save(filepath)
 
 """
+
 
 
 

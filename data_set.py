@@ -49,13 +49,27 @@ class Dataset():
 
     # preprocess, all are staticmethod
     @staticmethod
-    def preprocess_wholesuitely(vocab, data_raw):
+    def preprocess_for_prediction(data_raw, settings):
         """ data_raw: list of texts
             returning: data for deep-model input
         """
+        vocab = settings.vocab
+        min_seq_len = settings.min_seq_len
+        
         data_seg = Dataset.clean_and_seg_list_raw(data_raw)
         data_converted = Dataset.convert_data_seg_to_ids(vocab, data_seg)
-        return data_converted
+        
+        data_check = []
+        for item in data_converted:
+            d = min_seq_len - len(item)
+            if d > 0:
+                item_p = item.copy()
+                item_p.extend( [0] * d)
+                data_check.append(item_p)
+            else:
+                data_check.append(item)                
+                
+        return [ data_check ]
     
     @staticmethod
     def clean_and_seg_list_raw(data_raw):        
@@ -272,7 +286,7 @@ class Dataset():
         return batches 
     
     @staticmethod
-    def do_normalizing_batches(data_batches, settings = None):
+    def do_standardizing_batches(data_batches, settings = None):
         """ padding batches
         """
         min_seq_len = 5
@@ -327,8 +341,8 @@ if __name__ == '__main__':
     Settings = namedtuple('Settings', ['min_seq_len'])
     settings = Settings(5)
     
-    train_batches_padded = dataset.do_normalizing_batches(train_batches, settings)
-    test_batches_padded = dataset.do_normalizing_batches(test_batches, settings)
+    train_batches_padded = dataset.do_standardizing_batches(train_batches, settings)
+    test_batches_padded = dataset.do_standardizing_batches(test_batches, settings)
     
     #
     dataset = Dataset()
