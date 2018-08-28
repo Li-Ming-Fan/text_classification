@@ -1,6 +1,6 @@
-# Task-Independent Model Wrapper (Sentence Classification)
+# Task-Independent Model Wrapper
 
-Experiments on sentence classification.
+Task-Independent Model Wrapper. Experiments on sentence classification.
 
 ## Task-independent
 
