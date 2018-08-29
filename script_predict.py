@@ -35,7 +35,7 @@ dataset.load_vocab_tokens_and_emb()
 config = ModelSettings(dataset.vocab)
 config.model_tag = model_tag
 config.model_graph = build_graph
-config.is_train = True
+config.is_train = False
 
 #
 model = ModelWrapper(config)
