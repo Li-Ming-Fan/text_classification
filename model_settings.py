@@ -5,6 +5,9 @@ Created on Tue Aug 28 21:12:23 2018
 @author: limingfan
 """
 
+import os
+import time
+
 
 class ModelSettings(object):
     def __init__(self, vocab, is_train = None):
@@ -52,6 +55,13 @@ class ModelSettings(object):
         self.metric_name = 'accuracy/metric:0'
         self.use_metric = True
         #
+        # save and log
+        self.model_dir = None
+        self.model_name = None
+        self.pb_file = None
+        self.log_dir = None
+        self.log_path = None
+        #
         
     def check_settings(self):
         
@@ -71,9 +81,23 @@ class ModelSettings(object):
             assert self.model_graph is not None, 'model_graph is None'
             assert len(self.inputs_train_name), 'inputs_train_name is []'
             assert len(self.outputs_train_name), 'outputs_train_name is []'
-            assert self.loss_name is not None, 'loss_name is None'
+            assert self.loss_name is not None, 'loss_name is None'        
+        if self.use_metric:
+            assert self.metric_name is not None, 'metric_name is None'
             
         assert self.model_tag is not None, 'model_tag is None'
+        
+        # model dir
+        if self.model_dir is None: self.model_dir = './model_' + self.model_tag
+        if self.model_name is None: self.model_name = 'model_' + self.model_tag
+        if self.pb_file is None: self.pb_file = os.path.join(self.model_dir + '_best',
+                                                             self.model_name + '.pb')
+        
+        # log
+        if self.log_dir is None: self.log_dir = './log'
+        str_datetime = time.strftime("%Y-%m-%d-%H-%M")       
+        if self.log_path is None: self.log_path = os.path.join(self.log_dir,
+                                                   self.model_name + "_" + str_datetime +".txt")
         
     def trans_info_to_dict(self):
                 
@@ -84,4 +108,21 @@ class ModelSettings(object):
             info_dict[str(name)] = value        
         return info_dict
         
-        
+if __name__ == '__main__':
+    
+    sett = ModelSettings('vocab_placeholder', False)
+    
+    sett.model_tag = 'cnn'
+    
+    #print(dir(sett))    
+    #l = [i for i in dir(sett) if inspect.isbuiltin(getattr(sett, i))]
+    #l = [i for i in dir(sett) if inspect.isfunction(getattr(sett, i))]
+    #l = [i for i in dir(sett) if not callable(getattr(sett, i))]
+    
+    sett.check_settings()
+    
+    print(sett.__dict__.keys())
+    print()
+    
+
+    

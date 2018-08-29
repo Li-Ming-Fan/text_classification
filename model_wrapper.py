@@ -40,22 +40,7 @@ class ModelWrapper(ModelSettings):
         # session info
         self.sess_config = tf.ConfigProto()
         self.sess_config.gpu_options.allow_growth = True
-
-    # check and make
-    def check_and_make(self):
         
-        super().check_settings()
-
-        # model dir
-        self.model_dir = './model_' + self.model_tag
-        self.model_name = 'model_' + self.model_tag
-        self.pb_file = os.path.join(self.model_dir + '_best', self.model_name + '.pb')
-        
-        # log
-        self.log_dir = './log'
-        str_datetime = str(time.strftime("%Y-%m-%d-%H-%M"))        
-        self.log_path = os.path.join(self.log_dir, 
-                                     self.model_name + "_" + str_datetime +".txt")
         
     def _log_info(self, str_info):     
         if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
@@ -224,32 +209,31 @@ class ModelWrapper(ModelSettings):
         best_acc_val = 0.0 
         last_improved = 0
         
-        lr = self.settings.learning_rate_base
+        lr = self.learning_rate_base
         with self._graph.as_default():
             self._sess.run(tf.assign(self._lr, tf.constant(lr, dtype=tf.float32)))
         
-        valid_batches = Dataset.do_batching_data(valid_data, self.settings.batch_size_eval)
+        valid_batches = Dataset.do_batching_data(valid_data, self.batch_size_eval)
         valid_batches = Dataset.do_standardizing_batches(valid_batches, self.settings)
         
         print('Creating model for evaluation ...')
         config_e = self.settings
         config_e.keep_prob = 1.0
         model_e = ModelWrapper(config_e)
-        model_e.check_and_make()
         model_e.prepare_for_train_and_valid()
         
         flag_stop = False
-        for epoch in range(self.settings.num_epochs):
+        for epoch in range(self.num_epochs):
             print('Epoch: %d, training ...' % (epoch + 1) )
             
-            train_batches = Dataset.do_batching_data(train_data, self.settings.batch_size)
+            train_batches = Dataset.do_batching_data(train_data, self.batch_size)
             train_batches = Dataset.do_standardizing_batches(train_batches, self.settings)
             
             for data_batch in train_batches:
                 feed_dict = self._feed_data_train(data_batch)
                 
                 # valid
-                if total_batch % self.settings.valid_per_batch == 0:
+                if total_batch % self.valid_per_batch == 0:
                     # load
                     ckpt = tf.train.get_checkpoint_state(self.model_dir)
                     if ckpt and ckpt.model_checkpoint_path:
@@ -275,7 +259,7 @@ class ModelWrapper(ModelSettings):
                         #
                     
                     # stop
-                    if total_batch - last_improved >= self.settings.patience_stop:
+                    if total_batch - last_improved >= self.patience_stop:
                         str_info = "no improvement for a long time, stop optimization at curr_batch: %d" \
                                     % total_batch
                         self._log_info(str_info)
@@ -285,11 +269,11 @@ class ModelWrapper(ModelSettings):
                         break # for batch
                     
                     # decay
-                    if total_batch - last_improved >= self.settings.patience_decay or \
+                    if total_batch - last_improved >= self.patience_decay or \
                     (not self.use_metric and \
                      total_batch > 0 and \
-                     total_batch % self.settings.patience_decay == 0):
-                        lr *= self.settings.ratio_decay
+                     total_batch % self.patience_decay == 0):
+                        lr *= self.ratio_decay
                         with self._graph.as_default():
                             self._sess.run(tf.assign(self._lr, tf.constant(lr, dtype=tf.float32)))
                         last_improved = total_batch
@@ -315,7 +299,7 @@ class ModelWrapper(ModelSettings):
                 total_batch += 1
                     
                 # save
-                if total_batch % self.settings.save_per_batch == 0:
+                if total_batch % self.save_per_batch == 0:
                     #s = session.run(merged_summary, feed_dict=feed_dict)
                     #writer.add_summary(s, total_batch)
                     loss = self._sess.run(self._loss_tensor, feed_dict = feed_dict)
@@ -343,9 +327,11 @@ class ModelWrapper(ModelSettings):
             
 if __name__ == '__main__':
     
-    sett = ModelSettings(False)
+    sett = ModelSettings('vocab_placeholder', False)
     
     sett.model_tag = 'cnn'
+    
+    sett.check_settings()
     
     #print(dir(sett))    
     #l = [i for i in dir(sett) if inspect.isbuiltin(getattr(sett, i))]
@@ -357,13 +343,11 @@ if __name__ == '__main__':
     
     model = ModelWrapper(sett)
     
-    """
-    print(model.__dict__.keys())    
+    print(model.__dict__.keys())
+    print()
     for key in model.__dict__.keys():
         print(key + ': ' + str(model.__dict__[key]) )
-        
-    """
-    
+  
     
             
             

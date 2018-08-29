@@ -17,7 +17,11 @@ model_tag = 'cnn'
 
 if model_tag == 'cnn':
     from model_graph_cnn import build_graph
-
+elif model_tag == 'csm':
+    from model_graph_csm import build_graph
+elif model_tag == 'rnn':
+    from model_graph_rnn import build_graph
+    
     
 #
 # data
@@ -35,11 +39,11 @@ dataset.load_vocab_tokens_and_emb()
 config = ModelSettings(dataset.vocab)
 config.model_tag = model_tag
 config.model_graph = build_graph
-config.is_train = False
+config.is_train = True
+config.check_settings()
 
 #
 model = ModelWrapper(config)
-model.check_and_make()
 model.prepare_for_prediction()
 #
 
