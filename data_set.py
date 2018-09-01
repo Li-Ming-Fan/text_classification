@@ -30,12 +30,14 @@ class Dataset():
         self.dir_data_converted = './data_converted'
         
         self.vocab_filter_cnt = 5
-        self.emb_dim = 64
+        self.emb_dim = 300
         self.pretrained_emb_file = None
              
         # train and valid
         self.file_raw_1 = "./data_raw/neg.xls"
-        self.file_raw_2 = "./data_raw/pos.xls"        
+        self.file_raw_2 = "./data_raw/pos.xls"
+        #
+        self.max_seq_len = 200
 
         self.data_raw_1 = []
         self.data_raw_2 = []
@@ -93,7 +95,9 @@ class Dataset():
     # vocab   
     def load_vocab_tokens_and_emb(self, file_tokens = None, file_emb = None):
         """
-        """        
+        """
+        print('load vocab tokens and emb ...')
+        
         if file_tokens is None:
             file_tokens = os.path.join(self.dir_vocab, 'vocab_tokens.txt')
         if file_emb is None:
@@ -107,6 +111,8 @@ class Dataset():
     def build_vocab_tokens_and_emb(self):
         """ dataset data_seg
         """
+        print('build vocab tokens and emb ...')
+        
         if not os.path.exists(self.dir_vocab): os.mkdir(self.dir_vocab)        
         self.vocab = Vocab()
         
@@ -125,9 +131,11 @@ class Dataset():
         self.vocab.save_embeddings_to_file(os.path.join(self.dir_vocab, 'vocab_emb.txt'))
     
     # train and valid
-    def prepare_processed_data(self, load_vocab = False):
+    def prepare_processed_data(self, load_vocab):
         """ prepare data to train and test
         """
+        max_seq_len = self.max_seq_len
+        
         # load and seg
         print('load data_raw ...')
         self.data_raw_1 = self._load_from_file_raw(self.file_raw_1)
@@ -136,6 +144,10 @@ class Dataset():
         print('cleanse and seg ...')        
         self.data_seg_1 = Dataset.clean_and_seg_list_raw(self.data_raw_1)
         self.data_seg_2 = Dataset.clean_and_seg_list_raw(self.data_raw_2)
+        
+        print('truncate data ...')
+        self.data_seg_1 = [item[0:min(len(item), max_seq_len)] for item in self.data_seg_1]
+        self.data_seg_2 = [item[0:min(len(item), max_seq_len)] for item in self.data_seg_2]
 
         #
         print('load or build vocab ...')
@@ -158,7 +170,7 @@ class Dataset():
     def load_processed_data(self):
         """
         """
-        print('load vocab tokens and emb ...')
+        print('load processed data ...')
         self.load_vocab_tokens_and_emb()
         self._load_data_converted()
         
@@ -321,10 +333,13 @@ if __name__ == '__main__':
     dataset.vocab_filter_cnt = 5
     dataset.emb_dim = 64
     
+    dataset.max_seq_len = 200    
     dataset.prepare_processed_data(load_vocab = False)
-     
+
+    #
     data_train, data_valid = dataset.split_train_and_test()
-    
+
+    #
     train_batches = dataset.do_batching_data(data_train, 32)
     test_batches = dataset.do_batching_data(data_valid, 32)
     

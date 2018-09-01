@@ -1,14 +1,12 @@
 # -*- coding: utf-8 -*-
 """
-Created on Sun Aug 26 07:40:52 2018
+Created on Thu Aug 30 21:34:33 2018
 
 @author: limingfan
 
 """
 
 import tensorflow as tf
-
-from zoo_layers import att_pool_layer, dot_att_layer
 
 
 def build_graph(config):
@@ -23,28 +21,17 @@ def build_graph(config):
                                     trainable = config.emb_tune)
         embedding_inputs = tf.nn.embedding_lookup(embedding, input_x)
         
-        seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
-        # seq_len = tf.reduce_sum(seq_mask, 1)
+        seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)        
+        seq_len = tf.reduce_sum(seq_mask, 1)
+        seq_len = tf.cast(seq_len, dtype = tf.float32)
 
-    with tf.name_scope("csm"):
+    with tf.name_scope("mlp"):
         
-        conv1_5 = tf.layers.conv1d(embedding_inputs, 128, 5, padding='same', name='conv1_5')
-        conv1_3 = tf.layers.conv1d(embedding_inputs, 128, 3, padding='same', name='conv1_3')
-        conv1_2 = tf.layers.conv1d(embedding_inputs, 128, 2, padding='same', name='conv1_2')
+        summ = tf.reduce_sum(embedding_inputs, 1)
         
-        emb_c = tf.concat([conv1_5, conv1_3, conv1_2, embedding_inputs], -1)
-        
-        trans = dot_att_layer(emb_c, emb_c, seq_mask, 256, keep_prob=config.keep_prob,
-                              gating=False, scope="dot_attention")
-        
-        att_dim = 128
-        
-        B = tf.shape(trans)[0]
-        query = tf.get_variable("query", [att_dim])
-        query = tf.tile(tf.expand_dims(query, 0), [B, 1])     
-        
-        feat = att_pool_layer(trans, query, seq_mask, att_dim,
-                              config.keep_prob, is_train=None, scope="att_pooling")
+        seq_len_tile =tf.tile(tf.expand_dims(seq_len, 1), [1, config.vocab.emb_dim])
+
+        feat = tf.div(summ, seq_len_tile)
 
     with tf.name_scope("score"):
         #
@@ -54,7 +41,7 @@ def build_graph(config):
         
         fc = tf.contrib.layers.dropout(fc, config.keep_prob)
         logits = tf.layers.dense(fc, config.num_classes, name='fc2')
-        #logits = tf.nn.sigmoid(logits)
+        # logits = tf.nn.sigmoid(fc)
         
         normed_logits = tf.nn.softmax(logits, name='logits')          
         y_pred_cls = tf.argmax(logits, 1, name='pred_cls')

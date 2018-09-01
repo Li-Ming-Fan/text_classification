@@ -11,7 +11,7 @@ from model_wrapper import ModelWrapper
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 #
-model_tag = 'cnn'
+model_tag = 'mlp'
 #
 
 if model_tag == 'cnn':

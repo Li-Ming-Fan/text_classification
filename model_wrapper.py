@@ -21,7 +21,6 @@ from data_set import Dataset
 """
 This class is meant to be task-independent.
 
-
 """
       
         
@@ -113,6 +112,10 @@ class ModelWrapper(ModelSettings):
         with self._graph.as_default():
             #
             self.model_graph(self.settings)
+            #
+            # all trainable vars
+            self.trainable_vars = tf.trainable_variables()
+            # print(self.trainable_vars)
             #            
             self._global_step = tf.get_variable('global_step', shape=[], dtype=tf.int32,
                                            initializer=tf.constant_initializer(0), trainable=False)
@@ -122,11 +125,17 @@ class ModelWrapper(ModelSettings):
                 self._metric_tensor = self._graph.get_tensor_by_name(self.metric_name)
             self._loss_tensor = self._graph.get_tensor_by_name(self.loss_name)
             #
+            if self.reg_lambda > 0.0:
+                loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars \
+                                     if 'bias' not in v.name ])
+                loss_reg = tf.multiply(loss_reg, self.reg_lambda)
+                self._loss_tensor = tf.add(self._loss_tensor, loss_reg)
+            #
             # Optimizer
             self._opt = tf.train.AdamOptimizer(learning_rate = self._lr)
             #
             self._train_op = None
-            if self.is_grad_clip:
+            if self.grad_clip > 0.0:
                 grads = self._opt.compute_gradients(self._loss_tensor)
                 gradients, variables = zip(*grads)
                 grads, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
@@ -135,10 +144,7 @@ class ModelWrapper(ModelSettings):
             else:
                 self._train_op = self._opt.minimize(self._loss_tensor)
                     
-            #            
-            # all params
-            self.all_params = tf.trainable_variables()
-            #
+            #         
             # save info
             self._saver = tf.train.Saver()
             self._saver_best = tf.train.Saver()
@@ -150,7 +156,8 @@ class ModelWrapper(ModelSettings):
             self._sess.run(tf.global_variables_initializer())
             
             # params count
-            self.param_num = sum([np.prod(self._sess.run(tf.shape(v))) for v in self.all_params])
+            self.param_num = sum([np.prod(self._sess.run(tf.shape(v))) \
+                                  for v in self.trainable_vars])
             #
             str_info = 'Graph built, there are %d parameters in the model' % self.param_num
             self._log_info(str_info)
@@ -324,6 +331,13 @@ class ModelWrapper(ModelSettings):
             #
             if flag_stop: break # for epoch
             #
+        #
+        str_info = "training ended after total epoches: %d" % (epoch + 1)
+        self._log_info(str_info)
+        self._log_info("")
+        # print(str_info)
+        # print()
+        #
             
 if __name__ == '__main__':
     

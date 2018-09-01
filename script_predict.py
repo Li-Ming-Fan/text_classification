@@ -11,7 +11,6 @@ from model_wrapper import ModelWrapper
 os.environ['CUDA_VISIBLE_DEVICES'] = '0'
 
 #
-flag_load_data = True
 model_tag = 'cnn'
 #
 
@@ -21,27 +20,22 @@ elif model_tag == 'csm':
     from model_graph_csm import build_graph
 elif model_tag == 'rnn':
     from model_graph_rnn import build_graph
-    
+elif model_tag == 'mlp':
+    from model_graph_mlp import build_graph    
     
 #
 # data
-pretrained_emb_file = None
-emb_dim = 64
-#
 dataset = Dataset()
-dataset.pretrained_emb_file = pretrained_emb_file
-dataset.emb_dim = emb_dim
-#
 dataset.load_vocab_tokens_and_emb()
 #
 
 #
-config = ModelSettings(dataset.vocab)
+config = ModelSettings()
+config.vocab = dataset.vocab
 config.model_tag = model_tag
 config.model_graph = build_graph
-config.is_train = True
+config.is_train = False
 config.check_settings()
-
 #
 model = ModelWrapper(config)
 model.prepare_for_prediction()

@@ -10,7 +10,7 @@ import time
 
 
 class ModelSettings(object):
-    def __init__(self, vocab, is_train = None):
+    def __init__(self, vocab = None, is_train = None):
         
         # model graph
         self.model_tag = None
@@ -24,7 +24,6 @@ class ModelSettings(object):
         
         # vocab
         self.vocab = vocab
-        #
         self.emb_tune = 0  # 1 for tune, 0 for not
         self.keep_prob = 0.7
         
@@ -33,8 +32,8 @@ class ModelSettings(object):
         self.batch_size = 64
         self.batch_size_eval = 128 
         
-        self.grad_clip = 8.0
-        self.is_grad_clip = False
+        self.reg_lambda = 0.0001  # 0.0, 0.0001
+        self.grad_clip = 8.0  # 0.0, 5.0, 8.0
         self.learning_rate_base = 0.001         
         self.ratio_decay = 0.9
         self.patience_decay = 1000

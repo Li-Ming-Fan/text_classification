@@ -45,8 +45,8 @@ def build_graph(config):
         fc = tf.nn.relu(fc)
         
         fc = tf.nn.dropout(fc, config.keep_prob)
-        fc = tf.layers.dense(fc, config.num_classes, name='fc2')
-        logits = tf.nn.sigmoid(fc)
+        logits = tf.layers.dense(fc, config.num_classes, name='fc2')
+        # logits = tf.nn.sigmoid(fc)
         
         normed_logits = tf.nn.softmax(logits, name='logits')          
         y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
