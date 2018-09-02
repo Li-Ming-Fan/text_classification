@@ -1,8 +1,8 @@
-# Task-Independent Model Wrapper
+# Text Classification (Sentence level)
 
-Task-Independent Model Wrapper. Experiments on sentence classification.
+Experiments on sentence classification. Task-Independent Model Wrapper. 
 
-## Task-independent
+## Task-independent Model Wrapper
 
 A supervised learning project commonly has the following modules:
 
@@ -17,6 +17,14 @@ The train/valid/pred procedures for supervised learnings are much the same for d
 * CNN
 * RNN + Attention-Pooling
 * CNN + Self-Matching
+
+## Description
+
+To run this repo:
+
+1, python data_set.py
+2, python script_train_cnn.py
+
 
 ## References
 
