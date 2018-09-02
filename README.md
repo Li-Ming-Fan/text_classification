@@ -23,6 +23,7 @@ The train/valid/pred procedures for supervised learnings are much the same for d
 To run this repo:
 
 1, python data_set.py
+
 2, python script_train_cnn.py
 
 
