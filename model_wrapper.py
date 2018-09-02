@@ -28,17 +28,22 @@ class ModelWrapper(ModelSettings):
     
     def __init__(self, settings):
         
-        self.settings = settings
-        #
-        super().__init__(settings.is_train)
-        for key in settings.__dict__.keys():
-            # print(key + ': ' + str(self.__dict__[key]) )                   
-            self.__dict__[key] = settings.__dict__[key]
-            # print(key + ': ' + str(self.__dict__[key]) ) 
+        # settings
+        self.set_model_settings(settings)
             
         # session info
         self.sess_config = tf.ConfigProto()
         self.sess_config.gpu_options.allow_growth = True
+        
+    def set_model_settings(self, settings):
+        
+        self.settings = settings
+        #
+        # super().__init__(settings.is_train)
+        for key in settings.__dict__.keys():
+            # print(key + ': ' + str(self.__dict__[key]) )                   
+            self.__dict__[key] = settings.__dict__[key]
+            # print(key + ': ' + str(self.__dict__[key]) ) 
         
         
     def _log_info(self, str_info):     
@@ -166,7 +171,7 @@ class ModelWrapper(ModelSettings):
             info_dict = self.settings.trans_info_to_dict()
             str_info = json.dumps(info_dict, ensure_ascii = False)
             self._log_info(str_info)
-            print(str_info)
+            # print(str_info)
             #
             self._inputs_train = []
             for item in self.inputs_train_name:

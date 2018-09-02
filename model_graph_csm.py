@@ -17,34 +17,45 @@ def build_graph(config):
     input_y = tf.placeholder(tf.int64, [None], name='input_y')
 
     with tf.device('/cpu:0'):
-        embedding = tf.get_variable('embedding',
-                                    [config.vocab.size(), config.vocab.emb_dim],
-                                    initializer=tf.constant_initializer(config.vocab.embeddings),
-                                    trainable = config.emb_tune)
-        embedding_inputs = tf.nn.embedding_lookup(embedding, input_x)
+        emb_mat = tf.get_variable('embedding',
+                                  [config.vocab.size(), config.vocab.emb_dim],
+                                  initializer=tf.constant_initializer(config.vocab.embeddings),
+                                  trainable = config.emb_tune)
+        seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
         
         seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
         # seq_len = tf.reduce_sum(seq_mask, 1)
 
     with tf.name_scope("csm"):
         
-        conv1_5 = tf.layers.conv1d(embedding_inputs, 128, 5, padding='same', name='conv1_5')
-        conv1_3 = tf.layers.conv1d(embedding_inputs, 128, 3, padding='same', name='conv1_3')
-        conv1_2 = tf.layers.conv1d(embedding_inputs, 128, 2, padding='same', name='conv1_2')
+        conv1_5 = tf.layers.conv1d(seq_emb, 128, 5, padding='same', name='conv1_5')
+        conv1_3 = tf.layers.conv1d(seq_emb, 128, 3, padding='same', name='conv1_3')
+        conv1_2 = tf.layers.conv1d(seq_emb, 128, 2, padding='same', name='conv1_2')
         
-        emb_c = tf.concat([conv1_5, conv1_3, conv1_2, embedding_inputs], -1)
+        emb_d = tf.concat([conv1_5, conv1_3, conv1_2, seq_emb], -1)
+        emb_d = tf.layers.dense(emb_d, 256, name = 'emb_d')
         
-        trans = dot_att_layer(emb_c, emb_c, seq_mask, 256, keep_prob=config.keep_prob,
-                              gating=False, scope="dot_attention")
-        
+        B = tf.shape(emb_d)[0]
+        num_heads = 2
         att_dim = 128
         
-        B = tf.shape(trans)[0]
-        query = tf.get_variable("query", [att_dim])
-        query = tf.tile(tf.expand_dims(query, 0), [B, 1])     
-        
-        feat = att_pool_layer(trans, query, seq_mask, att_dim,
-                              config.keep_prob, is_train=None, scope="att_pooling")
+        feat = []
+        for idx in range(num_heads):
+            trans = dot_att_layer(emb_d, emb_d, seq_mask, 256, 
+                                  keep_prob=config.keep_prob, gating = False,
+                                  scope = "dot_attention_" + str(idx))
+            
+            query = tf.get_variable("query_" + str(idx), [att_dim],
+                                    initializer = tf.ones_initializer())
+            query = tf.tile(tf.expand_dims(query, 0), [B, 1])     
+            
+            feat_c = att_pool_layer(trans, query, seq_mask, att_dim,
+                                    config.keep_prob, is_train = None,
+                                    scope = "att_pooling_" + str(idx))
+            feat.append(feat_c)
+        #            
+        feat = tf.concat(feat, 1)
+        #
 
     with tf.name_scope("score"):
         #

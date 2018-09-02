@@ -18,22 +18,23 @@ def build_graph(config):
     input_y = tf.placeholder(tf.int64, [None], name='input_y')
 
     with tf.device('/cpu:0'):
-        embedding = tf.get_variable('embedding',
-                                    [config.vocab.size(), config.vocab.emb_dim],
-                                    initializer=tf.constant_initializer(config.vocab.embeddings),
-                                    trainable = config.emb_tune)
-        embedding_inputs = tf.nn.embedding_lookup(embedding, input_x)
+        emb_mat = tf.get_variable('embedding',
+                                  [config.vocab.size(), config.vocab.emb_dim],
+                                  initializer=tf.constant_initializer(config.vocab.embeddings),
+                                  trainable = config.emb_tune)
+        seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
         
         seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
         seq_len = tf.reduce_sum(seq_mask, 1)
 
     with tf.name_scope("rnn"):
         
-        seq_e = rnn_layer(embedding_inputs, seq_len, 128, config.keep_prob,
+        seq_e = rnn_layer(seq_emb, seq_len, 128, config.keep_prob,
                           activation = tf.nn.relu, concat = True, scope = 'bi-lstm-1')        
                
         B = tf.shape(seq_e)[0]
-        query = tf.get_variable("query", [config.att_dim])
+        query = tf.get_variable("query", [config.att_dim],
+                                initializer = tf.ones_initializer())
         query = tf.tile(tf.expand_dims(query, 0), [B, 1])
 
         feat = att_pool_layer(seq_e, query, seq_mask, config.att_dim,

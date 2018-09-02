@@ -11,11 +11,7 @@ import time
 
 class ModelSettings(object):
     def __init__(self, vocab = None, is_train = None):
-        
-        # model graph
-        self.model_tag = None
-        self.model_graph = None
-        
+
         # model macro     
         self.min_seq_len = 5  #
         self.att_dim = 256
@@ -25,7 +21,11 @@ class ModelSettings(object):
         # vocab
         self.vocab = vocab
         self.emb_tune = 0  # 1 for tune, 0 for not
-        self.keep_prob = 0.7
+        
+        # 
+        # model graph
+        self.model_tag = None
+        self.model_graph = None
         
         # train
         self.num_epochs = 100     
@@ -34,6 +34,8 @@ class ModelSettings(object):
         
         self.reg_lambda = 0.0001  # 0.0, 0.0001
         self.grad_clip = 8.0  # 0.0, 5.0, 8.0
+        self.keep_prob = 0.7  # 1.0, 0.7, 0.5
+        
         self.learning_rate_base = 0.001         
         self.ratio_decay = 0.9
         self.patience_decay = 1000
@@ -53,8 +55,9 @@ class ModelSettings(object):
         self.loss_name = 'loss/loss:0'
         self.metric_name = 'accuracy/metric:0'
         self.use_metric = True
+        
         #
-        # save and log
+        # save and log, if not set, default values will be used.
         self.model_dir = None
         self.model_name = None
         self.pb_file = None
@@ -97,6 +100,19 @@ class ModelSettings(object):
         str_datetime = time.strftime("%Y-%m-%d-%H-%M")       
         if self.log_path is None: self.log_path = os.path.join(self.log_dir,
                                                    self.model_name + "_" + str_datetime +".txt")
+        
+        #
+        self.display()
+        #
+        
+    def display(self):
+        
+        print()
+        for name,value in vars(self).items():
+            if not isinstance(value, (int, float, str, bool, list, dict, tuple)):
+                continue
+            print(str(name) + ': ' + str(value))
+        print()
         
     def trans_info_to_dict(self):
                 

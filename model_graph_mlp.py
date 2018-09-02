@@ -15,11 +15,11 @@ def build_graph(config):
     input_y = tf.placeholder(tf.int64, [None], name='input_y')
 
     with tf.device('/cpu:0'):
-        embedding = tf.get_variable('embedding',
-                                    [config.vocab.size(), config.vocab.emb_dim],
-                                    initializer=tf.constant_initializer(config.vocab.embeddings),
-                                    trainable = config.emb_tune)
-        embedding_inputs = tf.nn.embedding_lookup(embedding, input_x)
+        emb_mat = tf.get_variable('embedding',
+                                  [config.vocab.size(), config.vocab.emb_dim],
+                                  initializer=tf.constant_initializer(config.vocab.embeddings),
+                                  trainable = config.emb_tune)
+        seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
         
         seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)        
         seq_len = tf.reduce_sum(seq_mask, 1)
@@ -27,7 +27,7 @@ def build_graph(config):
 
     with tf.name_scope("mlp"):
         
-        summ = tf.reduce_sum(embedding_inputs, 1)
+        summ = tf.reduce_sum(seq_emb, 1)
         
         seq_len_tile =tf.tile(tf.expand_dims(seq_len, 1), [1, config.vocab.emb_dim])
 

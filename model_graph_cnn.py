@@ -14,17 +14,17 @@ def build_graph(config):
     input_y = tf.placeholder(tf.int64, [None], name='input_y')
 
     with tf.device('/cpu:0'):
-        embedding = tf.get_variable('embedding',
-                                    [config.vocab.size(), config.vocab.emb_dim],
-                                    initializer=tf.constant_initializer(config.vocab.embeddings),
-                                    trainable = config.emb_tune)
-        embedding_inputs = tf.nn.embedding_lookup(embedding, input_x)
+        emb_mat = tf.get_variable('embedding',
+                                  [config.vocab.size(), config.vocab.emb_dim],
+                                  initializer=tf.constant_initializer(config.vocab.embeddings),
+                                  trainable = config.emb_tune)
+        seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
 
     with tf.name_scope("cnn"):
         #
-        conv1_5 = tf.layers.conv1d(embedding_inputs, 128, 5, padding='same', name='conv1_5')
-        conv1_3 = tf.layers.conv1d(embedding_inputs, 128, 3, padding='same', name='conv1_3')
-        conv1_2 = tf.layers.conv1d(embedding_inputs, 128, 2, padding='same', name='conv1_2')
+        conv1_5 = tf.layers.conv1d(seq_emb, 128, 5, padding='same', name='conv1_5')
+        conv1_3 = tf.layers.conv1d(seq_emb, 128, 3, padding='same', name='conv1_3')
+        conv1_2 = tf.layers.conv1d(seq_emb, 128, 2, padding='same', name='conv1_2')
         
         conv1 = tf.concat([conv1_5, conv1_3, conv1_2], -1)
         

@@ -15,11 +15,12 @@ def dense(inputs, hidden, use_bias=True, scope="dense"):
         out_shape = [shape[idx] for idx in range(
             len(inputs.get_shape().as_list()) - 1)] + [hidden]
         flat_inputs = tf.reshape(inputs, [-1, dim])
-        W = tf.get_variable("W", [dim, hidden])
+        W = tf.get_variable("W", [dim, hidden],
+                            initializer = tf.variance_scaling_initializer())
         res = tf.matmul(flat_inputs, W)
         if use_bias:
             b = tf.get_variable(
-                "b", [hidden], initializer=tf.constant_initializer(0.))
+                "b", [hidden], initializer = tf.constant_initializer(0.))
             res = tf.nn.bias_add(res, b)
         res = tf.reshape(res, out_shape)
         return res
@@ -116,7 +117,7 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     input_sequence = tf.transpose(input_sequence, [1,0,2])
     #
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
-    act = activation or tf.nn.relu
+    act = activation or tf.nn.tanh
     #
     cell_fw = tf.contrib.rnn.LSTMCell(rnn_size, activation = act,
                                       initializer = weight_initializer)
