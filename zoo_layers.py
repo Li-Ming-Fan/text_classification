@@ -103,7 +103,8 @@ def att_pool_layer(seq, query, seq_mask, att_dim,
         #
     
 def rnn_layer(input_sequence, sequence_length, rnn_size,
-              keep_prob = 1.0, concat = True, scope = 'bi-lstm'):
+              keep_prob = 1.0, activation = None,
+              concat = True, scope = 'bi-lstm'):
     '''build bidirectional lstm layer'''
     #
     # time_major = False
@@ -115,9 +116,12 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     input_sequence = tf.transpose(input_sequence, [1,0,2])
     #
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
+    act = activation or tf.nn.relu
     #
-    cell_fw = tf.contrib.rnn.LSTMCell(rnn_size, initializer = weight_initializer)
-    cell_bw = tf.contrib.rnn.LSTMCell(rnn_size, initializer = weight_initializer)
+    cell_fw = tf.contrib.rnn.LSTMCell(rnn_size, activation = act,
+                                      initializer = weight_initializer)
+    cell_bw = tf.contrib.rnn.LSTMCell(rnn_size, activation = act,
+                                      initializer = weight_initializer)
     #
     #cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob=dropout_rate)
     #cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, input_keep_prob=dropout_rate)

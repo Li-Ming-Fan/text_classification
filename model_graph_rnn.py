@@ -9,6 +9,7 @@ Created on Sat Aug 25 15:33:42 2018
 import tensorflow as tf
 
 from zoo_layers import rnn_layer
+from zoo_layers import att_pool_layer
 
 
 def build_graph(config):
@@ -29,25 +30,25 @@ def build_graph(config):
     with tf.name_scope("rnn"):
         
         seq_e = rnn_layer(embedding_inputs, seq_len, 128, config.keep_prob,
-                          concat = True, scope = 'bi-lstm-1')        
-        '''        
+                          activation = tf.nn.relu, concat = True, scope = 'bi-lstm-1')        
+               
         B = tf.shape(seq_e)[0]
         query = tf.get_variable("query", [config.att_dim])
         query = tf.tile(tf.expand_dims(query, 0), [B, 1])
 
         feat = att_pool_layer(seq_e, query, seq_mask, config.att_dim,
                               config.keep_prob, is_train=None, scope="att_pooling")
-        '''
-        feat = seq_e[:,-1,:]
+        
+        #feat = seq_e[:,-1,:]
 
     with tf.name_scope("score"):
         #
-        #fc = tf.contrib.layers.dropout(feat, config.keep_prob)
-        #fc = tf.layers.dense(fc, 128, name='fc1')            
-        #fc = tf.nn.relu(fc)
+        fc = tf.contrib.layers.dropout(feat, config.keep_prob)
+        fc = tf.layers.dense(fc, 128, name='fc1')            
+        fc = tf.nn.relu(fc)
         
-        #fc = tf.contrib.layers.dropout(fc, config.keep_prob)
-        logits = tf.layers.dense(feat, config.num_classes, name='fc2')
+        fc = tf.contrib.layers.dropout(fc, config.keep_prob)
+        logits = tf.layers.dense(fc, config.num_classes, name='fc2')
         # logits = tf.nn.sigmoid(fc)
         
         normed_logits = tf.nn.softmax(logits, name='logits')          
