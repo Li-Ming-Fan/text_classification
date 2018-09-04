@@ -27,16 +27,18 @@ To run this repo:
 
 2, python script_train_cnn.py
 
+...
+
 
 ## References
 
-1, Convolutional Neural Networks for Sentence Classification (https://arxiv.org/abs/1408.5882 )
+1, Convolutional Neural Networks for Sentence Classification ( https://arxiv.org/abs/1408.5882 )
 
-2, Convolutional Neural Networks with Recurrent Neural Filters (https://arxiv.org/abs/1808.09315 )
+2, Convolutional Neural Networks with Recurrent Neural Filters ( https://arxiv.org/abs/1808.09315 )
 
-3, Neural Machine Translation by Jointly Learning to Align and Translate (https://arxiv.org/abs/1409.0473 )
+3, Neural Machine Translation by Jointly Learning to Align and Translate ( https://arxiv.org/abs/1409.0473 )
 
-4, Attention Is All You Need (https://arxiv.org/abs/1706.03762 )
+4, Attention Is All You Need ( https://arxiv.org/abs/1706.03762 )
 
 5, https://github.com/gaussic/text-classification-cnn-rnn
 
