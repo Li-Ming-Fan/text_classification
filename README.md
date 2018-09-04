@@ -2,7 +2,7 @@
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
-Requiring package jieba for token segmentation:
+Requiring package jieba for token-segmentation:
 
 pip install jieba
 
