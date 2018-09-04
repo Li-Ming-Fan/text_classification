@@ -30,6 +30,14 @@ To run this repo:
 
 ## References
 
+1, Convolutional Neural Networks for Sentence Classification (https://arxiv.org/abs/1408.5882 )
+
+2, Convolutional Neural Networks with Recurrent Neural Filters (https://arxiv.org/abs/1808.09315 )
+
+3, 
+
+4, 
+
 ...
 
 
