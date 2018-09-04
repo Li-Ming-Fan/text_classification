@@ -2,10 +2,6 @@
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
-Requiring package jieba for token-segmentation:
-
-pip install jieba
-
 
 ## Task-independent Model Wrapper
 
@@ -33,6 +29,10 @@ To run this repo:
 2, python script_train_cnn.py
 
 ...
+
+Requiring package jieba for token-segmentation:
+
+pip install jieba
 
 
 ## References
