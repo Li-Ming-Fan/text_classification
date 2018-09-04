@@ -2,6 +2,11 @@
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
+Requiring package jieba for token segmentation:
+
+pip install jieba
+
+
 ## Task-independent Model Wrapper
 
 A supervised learning project commonly has the following modules:
