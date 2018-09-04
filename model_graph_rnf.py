@@ -37,7 +37,8 @@ def cnn_rnf_layer(seq, seq_len, R, rnn_size, padding='valid', scope='cnn_rnf'):
     seq_s = tf.reshape(seq_s, [-1, R, D])       # [B*U, R, D]
     
     # go through rnn
-    seq_s_len = tf.reduce_max(tf.reduce_max(seq_s, 2), 1) * 0 + 1
+    # seq_s_len = tf.reduce_max(tf.reduce_max(seq_s, 2), 1) * 0 + 1
+    seq_s_len = seq_s[:,0,0] * 0 + 1
     seq_s_len = tf.multiply(seq_s_len, R)
     
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
