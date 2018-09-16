@@ -77,8 +77,8 @@ class Dataset():
         text = text.strip()
         #
         seg_list = jieba.cut(text, cut_all = False)
-        text = '<jieba_cut>'.join(seg_list)
-        tokens = text.split('<jieba_cut>')
+        tokens = list(seg_list)
+        #
         #print(text)
         #tokens = list(text)   # cut chars
         #
