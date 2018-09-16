@@ -87,7 +87,7 @@ def att_pool_layer(seq, query, seq_mask, att_dim,
         T = seq_shape[1]
         D = seq_shape[2]
         with tf.variable_scope("attention"):
-            d_seq = tf.nn.relu(dense(d_seq, att_dim, use_bias=False, scope="att_dense"))
+            d_seq = tf.nn.tanh(dense(d_seq, att_dim, scope="att_dense"))
             #
             q_tile = tf.tile(tf.expand_dims(query, 1), [1, T, 1])  # [B, T, DQ]
             att_value = tf.reduce_sum(tf.multiply(d_seq, q_tile), 2)  # [B, T]
