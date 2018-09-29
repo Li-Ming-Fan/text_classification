@@ -34,12 +34,12 @@ dataset = Dataset()
 flag_load_data = True
 # data
 if flag_load_data:
-    dataset.load_processed_data()
+    dataset.load_preprocessed_data()
 else:
     dataset.pretrained_emb_file = None
     dataset.emb_dim = 200
     dataset.max_seq_len = 200
-    dataset.prepare_processed_data(load_vocab = False)
+    dataset.prepare_preprocessed_data(load_vocab = False)
 #
 data_train, data_test = dataset.split_train_and_test()
 #
