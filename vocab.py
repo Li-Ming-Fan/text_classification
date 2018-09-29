@@ -85,7 +85,7 @@ class Vocab(object):
             if line.startswith(' '):
                 self.add(' ')
                 continue
-            token = line.split()[0]
+            token = line.split(' ')[0]
             self.add(token)
             #
             
