@@ -113,9 +113,6 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     if keep_prob < 1.0:
         input_sequence = dropout(input_sequence, keep_prob)
     #
-    # to time_major from batch_major
-    input_sequence = tf.transpose(input_sequence, [1,0,2])
-    #
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
     act = activation or tf.nn.tanh
     #
@@ -132,7 +129,7 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     #
     rnn_output, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, input_sequence,
                                                     sequence_length = sequence_length,
-                                                    time_major = True,
+                                                    time_major = False,
                                                     dtype = tf.float32,
                                                     scope = scope)
     #
@@ -141,9 +138,51 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     else:
         rnn_output = tf.multiply(tf.add(rnn_output[0], rnn_output[1]), 0.5, name = 'output')
     #
-    # to batch_major from time_major
-    rnn_output = tf.transpose(rnn_output, [1,0,2])
-    #
     return rnn_output
     #        
+
+#
+def gather_and_pad_layer(x, num_items):
+    """ x: (BS', D)
+        num_items : (B,)
+        
+        returning: (B, S, D), (B, S)
+    """
+    B = tf.shape(num_items)[0]
+    T = tf.reduce_max(num_items)
+    
+    pad_item = tf.zeros(shape = tf.shape(x[0:1,:]) )
+    one_int32 = tf.ones(shape = (1,), dtype = tf.int32)
+    zero_int32 = tf.zeros(shape = (1,), dtype = tf.int32)
+    
+    bsd_ta = tf.TensorArray(size = B, dtype = tf.float32)
+    mask_ta = tf.TensorArray(size = B, dtype = tf.int32)
+    time = tf.constant(0)
+    posi = tf.constant(0)
+    
+    def condition(time, posi_s, bsd_s, mask_s):
+        return tf.less(time, B)
+    
+    def body(time, posi_s, bsd_s, mask_s):        
+        posi_e = posi_s + num_items[time]        
+        chunk = x[posi_s:posi_e, :]
+        #
+        mask_c = tf.tile(one_int32, [ num_items[time] ] )
+        #
+        d = T - num_items[time]
+        chunk, mask_c = tf.cond(d > 0,
+                                lambda: (tf.concat([chunk, tf.tile(pad_item, [d, 1])], 0),
+                                         tf.concat([mask_c, tf.tile(zero_int32, [d])], 0) ),
+                                lambda: (chunk, mask_c) )
+        #
+        bsd_s = bsd_s.write(time, chunk)
+        mask_s = mask_s.write(time, mask_c)
+        return (time + 1, posi_e, bsd_s, mask_s)
+        
+    t, p, bsd_w, mask_w = tf.while_loop(cond = condition, body = body,
+                                        loop_vars = (time, posi, bsd_ta, mask_ta) )
+    bsd = bsd_w.stack()
+    mask = mask_w.stack()
+    
+    return bsd, mask
 

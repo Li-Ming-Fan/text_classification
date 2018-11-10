@@ -3,7 +3,6 @@
 Created on Mon Aug 27 22:31:20 2018
 
 @author: limingfan
-
 """
 
 import os
@@ -33,7 +32,7 @@ class ModelWrapper(ModelSettings):
             
         # session info
         self.sess_config = tf.ConfigProto()
-        self.sess_config.gpu_options.allow_growth = True
+        self.sess_config.gpu_options.allow_growth = settings.gpu_mem_growth
         
     def set_model_settings(self, settings):
         
@@ -46,7 +45,7 @@ class ModelWrapper(ModelSettings):
             # print(key + ': ' + str(self.__dict__[key]) ) 
         
         
-    def _log_info(self, str_info):     
+    def log_info(self, str_info):     
         if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
         with open(self.log_path, 'a', encoding='utf-8') as fp:
             if len(str_info.strip()) == 0:
@@ -89,28 +88,34 @@ class ModelWrapper(ModelSettings):
     def predict(self, inputs_data):
         """
         """
-        x_batch = Dataset.preprocess_for_prediction(inputs_data, self.settings) # a single batch
+        x_batch = Dataset.preprocess_for_prediction(inputs_data, self.settings) # a single batch        
+        feed_dict = self.feed_data_predict(x_batch)
+        outputs = self._sess.run(self._outputs_predict, feed_dict = feed_dict)
         
-        print(x_batch)
-        
-        feed_dict = self._feed_data_predict(x_batch)
+        return outputs
+    
+    def predict_from_batch(self, x_batch):
+        """
+        """
+        # x_batch = Dataset.preprocess_for_prediction(inputs_data, self.settings) # a single batch        
+        feed_dict = self.feed_data_predict(x_batch)
         outputs = self._sess.run(self._outputs_predict, feed_dict = feed_dict)
         
         return outputs
 
-    def _feed_data_predict(self, x_batch):        
+    def feed_data_predict(self, x_batch):        
         feed_dict = {}
         for idx in range(self._inputs_predict_num):
             feed_dict[self._inputs_predict[idx] ] = x_batch[idx]
         return feed_dict
         
-    def _feed_data_train(self, data_batch):        
+    def feed_data_train(self, data_batch):        
         feed_dict = {}
         for idx in range(self._inputs_train_num):
             feed_dict[self._inputs_train[idx] ] = data_batch[idx]
         return feed_dict
 
-    def prepare_for_train_and_valid(self):
+    def prepare_for_train_and_valid(self, dir_ckpt = None):
 
         # graph
         self._graph = tf.Graph()
@@ -165,12 +170,12 @@ class ModelWrapper(ModelSettings):
                                   for v in self.trainable_vars])
             #
             str_info = 'Graph built, there are %d parameters in the model' % self.param_num
-            self._log_info(str_info)
+            self.log_info(str_info)
             print(str_info)
             #
             info_dict = self.settings.trans_info_to_dict()
             str_info = json.dumps(info_dict, ensure_ascii = False)
-            self._log_info(str_info)
+            self.log_info(str_info)
             # print(str_info)
             #
             self._inputs_train = []
@@ -185,6 +190,15 @@ class ModelWrapper(ModelSettings):
             #            
             self._inputs_train_num = len(self._inputs_train)
             #
+        #
+        # load
+        if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
+        ckpt = tf.train.get_checkpoint_state(dir_ckpt)
+        
+        if ckpt and ckpt.model_checkpoint_path:
+            self._saver.restore(self._sess, ckpt.model_checkpoint_path)
+        #
+            
     #
     def evaluate(self, eval_batches):
         
@@ -195,7 +209,7 @@ class ModelWrapper(ModelSettings):
         for data_batch in eval_batches:
             batch_len = len(data_batch)
             data_len += batch_len
-            feed_dict = self._feed_data_train(data_batch)
+            feed_dict = self.feed_data_train(data_batch)
             loss = self._sess.run(self._loss_tensor, feed_dict = feed_dict)
             if self.use_metric:
                 metric = self._sess.run(self._metric_tensor, feed_dict = feed_dict)
@@ -207,7 +221,15 @@ class ModelWrapper(ModelSettings):
             #cls_pred = self.sess.run(self.y_pred_cls, feed_dict = feed_dict)
             #print(cls_pred)
             
-        return total_loss / data_len, total_acc / data_len
+        #
+        loss_mean = total_loss / data_len
+        metric_mean = total_acc / data_len            
+        #
+        str_info = "loss_eval, metric_eval: %.6f, %.4f" % (loss_mean, metric_mean)
+        self.log_info(str_info)
+        print(str_info)
+        #
+        return loss_mean, metric_mean
     
     def train_and_valid(self, train_data, valid_data):
         """ 
@@ -242,7 +264,7 @@ class ModelWrapper(ModelSettings):
             train_batches = Dataset.do_standardizing_batches(train_batches, self.settings)
             
             for data_batch in train_batches:
-                feed_dict = self._feed_data_train(data_batch)
+                feed_dict = self.feed_data_train(data_batch)
                 
                 # valid
                 if total_batch % self.valid_per_batch == 0:
@@ -274,7 +296,7 @@ class ModelWrapper(ModelSettings):
                     if total_batch - last_improved >= self.patience_stop:
                         str_info = "no improvement for a long time, stop optimization at curr_batch: %d" \
                                     % total_batch
-                        self._log_info(str_info)
+                        self.log_info(str_info)
                         print(str_info)
                         #
                         flag_stop = True
@@ -291,7 +313,7 @@ class ModelWrapper(ModelSettings):
                         last_improved = total_batch
                         #
                         str_info = 'learning_rate DECAYED at total_batch: %d' % total_batch
-                        self._log_info(str_info)
+                        self.log_info(str_info)
                         print(str_info)
                     
                     # time
@@ -299,11 +321,11 @@ class ModelWrapper(ModelSettings):
                     #
                     str_info = 'loss, metric, best_metric: %.6f, %.4f, %.4f' % (loss_val,
                                                                                 acc_val, best_acc_val)
-                    self._log_info(str_info)
+                    self.log_info(str_info)
                     # print(str_info)
                     #
                     str_info = 'curr_batch: %d, lr: %f' % (total_batch, lr)
-                    self._log_info(str_info)
+                    self.log_info(str_info)
                     # print(str_info)
 
                 # optim
@@ -320,12 +342,12 @@ class ModelWrapper(ModelSettings):
                         metric = self._sess.run(self._metric_tensor, feed_dict = feed_dict)
                     #
                     str_info = "epoch: %d" % (epoch + 1)
-                    self._log_info(str_info)
+                    self.log_info(str_info)
                     # print(str_info)
                     #
                     str_info = "loss, metric of train: %f, %f" % (loss, metric)
-                    self._log_info(str_info)
-                    self._log_info("")
+                    self.log_info(str_info)
+                    self.log_info("")
                     # print(str_info)
                     # print()
                     
@@ -338,10 +360,16 @@ class ModelWrapper(ModelSettings):
             #
         #
         str_info = "training ended after total epoches: %d" % (epoch + 1)
-        self._log_info(str_info)
-        self._log_info("")
+        self.log_info(str_info)
+        self.log_info("")
         # print(str_info)
         # print()
+        #
+        
+    def get_model_graph_and_sess(self):
+        """ for debug
+        """
+        return self._graph, self._sess
         #
             
 if __name__ == '__main__':
@@ -367,6 +395,3 @@ if __name__ == '__main__':
     for key in model.__dict__.keys():
         print(key + ': ' + str(model.__dict__[key]) )
   
-    
-            
-            

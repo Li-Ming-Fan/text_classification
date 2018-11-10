@@ -20,8 +20,8 @@ elif model_tag == 'csm':
     from model_graph_csm import build_graph
 elif model_tag == 'rnn':
     from model_graph_rnn import build_graph
-elif model_tag == 'mlp':
-    from model_graph_mlp import build_graph    
+elif model_tag == 'rnf':
+    from model_graph_rnf import build_graph    
     
 #
 # data
@@ -55,7 +55,7 @@ preds_list = []
 logits_list = []
 #
 for item in text_raw:
-    out = model.predict([ item ])
+    out = model.predict([ (item, 0) ])
     print(out)
     
     logits = out[0]

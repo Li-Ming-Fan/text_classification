@@ -13,8 +13,10 @@ class ModelSettings(object):
     def __init__(self, vocab = None, is_train = None):
 
         # model macro     
-        self.min_seq_len = 5  #
-        self.att_dim = 256
+        self.min_seq_len = 5      #
+        self.max_seq_len = 300   #
+        self.hidden = 128
+        self.att_dim = 128
         #
         self.num_classes = 2
         
@@ -28,6 +30,8 @@ class ModelSettings(object):
         self.model_graph = None
         
         # train
+        self.gpu_mem_growth = False
+        
         self.num_epochs = 100     
         self.batch_size = 64
         self.batch_size_eval = 128 
@@ -44,7 +48,7 @@ class ModelSettings(object):
         self.save_per_batch = 100
         self.valid_per_batch = 100
 
-        # inputs/outputs
+        # inputs/outputs 
         self.inputs_predict_name = ['input_x:0']     
         self.outputs_predict_name = ['score/logits:0']
         self.pb_outputs_name = ['score/logits']      

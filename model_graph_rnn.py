@@ -11,6 +11,8 @@ import tensorflow as tf
 from zoo_layers import rnn_layer
 from zoo_layers import att_pool_layer
 
+debug_tensor_name = "to_be_assigned"
+
 
 def build_graph(config):
     
@@ -44,11 +46,11 @@ def build_graph(config):
 
     with tf.name_scope("score"):
         #
-        fc = tf.contrib.layers.dropout(feat, config.keep_prob)
+        fc = tf.nn.dropout(feat, config.keep_prob)
         fc = tf.layers.dense(fc, 128, name='fc1')            
         fc = tf.nn.relu(fc)
         
-        fc = tf.contrib.layers.dropout(fc, config.keep_prob)
+        fc = tf.nn.dropout(fc, config.keep_prob)
         logits = tf.layers.dense(fc, config.num_classes, name='fc2')
         # logits = tf.nn.sigmoid(fc)
         
@@ -73,3 +75,44 @@ def build_graph(config):
     print()
     #
 
+    #
+    debug_tensor = normed_logits
+    #
+    global debug_tensor_name
+    debug_tensor_name = debug_tensor.name
+    print('debug_tensor_name: ' + debug_tensor_name)
+    print(debug_tensor)
+    print()
+    #
+    
+def debug_the_model(model, data_batches):
+    
+    model.log_info("begin debug ...")    
+    model_graph, model_sess = model.get_model_graph_and_sess()
+    
+    idx_batch = 0
+    
+    data_batch = data_batches[idx_batch]
+    
+    print()
+    for item in zip(*data_batch):
+        #
+        print(item[-1])
+        print(model.vocab.convert_ids_to_tokens(item[0]) )
+    print()
+    
+    #
+    global debug_tensor_name
+    tensor = model_graph.get_tensor_by_name(debug_tensor_name)
+    #
+    tensor_v = model_sess.run(tensor, feed_dict = model.feed_data_train(data_batch))    
+    print(tensor_v)
+    print(tensor_v.shape)
+    
+    loss = model_graph.get_tensor_by_name('loss/loss:0')
+    loss_v = model_sess.run(loss, feed_dict = model.feed_data_train(data_batch))    
+    print(loss_v)
+    
+    return tensor_v
+    #
+    
