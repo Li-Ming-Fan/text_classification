@@ -12,17 +12,20 @@ import tensorflow as tf
 debug_tensor_name = "to_be_assigned"
 
 
-
-def build_graph(config):
-
-    input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
-    input_y = tf.placeholder(tf.int64, [None], name='input_y')
+def build_model_graph(settings, data):
+    
+    input_x, input_y = data
 
     with tf.device('/cpu:0'):
+        
+        input_x = tf.identity(input_x, name = "input_x")
+        input_y = tf.identity(input_y, name = "input_y")
+        
+        #
         emb_mat = tf.get_variable('embedding',
-                                  [config.vocab.size(), config.vocab.emb_dim],
-                                  initializer=tf.constant_initializer(config.vocab.embeddings),
-                                  trainable = config.emb_tune)
+                                  [settings.vocab.size(), settings.vocab.emb_dim],
+                                  initializer=tf.constant_initializer(settings.vocab.embeddings),
+                                  trainable = settings.emb_tune)
         seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
 
     with tf.name_scope("cnn"):
@@ -45,45 +48,59 @@ def build_graph(config):
 
     with tf.name_scope("score"):
         #
-        fc = tf.nn.dropout(feat, config.keep_prob)
+        fc = tf.nn.dropout(feat, settings.keep_prob)
         fc = tf.layers.dense(fc, 128, name='fc1')            
         fc = tf.nn.relu(fc)
         
-        fc = tf.nn.dropout(fc, config.keep_prob)
-        logits = tf.layers.dense(fc, config.num_classes, name='fc2')
+        fc = tf.nn.dropout(fc, settings.keep_prob)
+        logits = tf.layers.dense(fc, settings.num_classes, name='fc2')
         # logits = tf.nn.sigmoid(fc)
         
-        normed_logits = tf.nn.softmax(logits, name='logits')          
-        y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
+        normed_logits = tf.nn.softmax(logits, name='logits')
         
-    with tf.name_scope("loss"):
+    with tf.name_scope("loss_infer"):
         #
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits,
                                                                        labels = input_y)
-        loss = tf.reduce_mean(cross_entropy, name = 'loss')
+        loss_infer = tf.reduce_mean(cross_entropy, name = 'loss_infer')
 
     with tf.name_scope("accuracy"):
         #
+        y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
         correct_pred = tf.equal(input_y, y_pred_cls)
         acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name = 'metric')
     
     #
-    print(normed_logits)
-    print(acc)
-    print(loss)
-    print()
+    if settings.keep_prob < 1.0:  # train, eval
+        print(input_x)
+        print(input_y)
+        #
+        print(normed_logits)
+        print(acc)
+        print(loss_infer)
+        print()
     #
 
     #
     debug_tensor = normed_logits
     #
+    
+    #
     global debug_tensor_name
     debug_tensor_name = debug_tensor.name
-    print('debug_tensor_name: ' + debug_tensor_name)
-    print(debug_tensor)
-    print()
+    #
+    if settings.keep_prob < 1.0:
+        print('debug_tensor_name: ' + debug_tensor_name)
+        print(debug_tensor)
+        print()
     #
     
+    #
+    return normed_logits, acc, loss_infer
+    # results, metric, loss
+    #
+
+
 def debug_the_model(model, data_batches):
     
     model.log_info("begin debug ...")    
@@ -114,5 +131,4 @@ def debug_the_model(model, data_batches):
     
     return tensor_v
     #
-    
 

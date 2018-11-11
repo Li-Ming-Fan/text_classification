@@ -25,9 +25,25 @@ class ModelSettings(object):
         self.emb_tune = 0  # 1 for tune, 0 for not
         
         # 
-        # model graph
+        # model builder
         self.model_tag = None
-        self.model_graph = None
+        self.model_graph_builder = None        
+        #
+        self.tfrecord_filelist = []
+        self.buffer_size = 30000
+        self.padded_shapes = ([None], [])    # ([None], [])
+        #
+        
+        # inputs/outputs        
+        self.inputs_train_name = ['input_x:0', 'input_y:0']
+        self.inputs_predict_name = ['input_x:0']     
+        self.outputs_predict_name = ['score/logits:0']
+        self.pb_outputs_name = ['score/logits']
+        self.is_train = is_train
+        #
+        self.loss_name = 'loss:0'
+        self.metric_name = 'accuracy/metric:0'
+        #
         
         # train
         self.gpu_mem_growth = False
@@ -48,18 +64,6 @@ class ModelSettings(object):
         self.save_per_batch = 100
         self.valid_per_batch = 100
 
-        # inputs/outputs 
-        self.inputs_predict_name = ['input_x:0']     
-        self.outputs_predict_name = ['score/logits:0']
-        self.pb_outputs_name = ['score/logits']      
-        self.is_train = is_train
-        
-        self.inputs_train_name = ['input_x:0', 'input_y:0']
-        self.outputs_train_name = ['score/logits:0']
-        self.loss_name = 'loss/loss:0'
-        self.metric_name = 'accuracy/metric:0'
-        self.use_metric = True
-        
         #
         # save and log, if not set, default values will be used.
         self.model_dir = None
@@ -68,7 +72,7 @@ class ModelSettings(object):
         self.log_dir = None
         self.log_path = None
         #
-        
+    
     def check_settings(self):
         
         assert self.vocab is not None, 'vocab is None'
@@ -84,11 +88,8 @@ class ModelSettings(object):
             assert len(self.inputs_predict_name), 'inputs_predict_name is []'
             assert len(self.outputs_predict_name), 'outputs_predict_name is []'
         else:
-            assert self.model_graph is not None, 'model_graph is None'
-            assert len(self.inputs_train_name), 'inputs_train_name is []'
-            assert len(self.outputs_train_name), 'outputs_train_name is []'
-            assert self.loss_name is not None, 'loss_name is None'        
-        if self.use_metric:
+            assert self.model_graph_builder is not None, 'model_graph_builder is None'
+            assert self.loss_name is not None, 'loss_name is None'
             assert self.metric_name is not None, 'metric_name is None'
             
         assert self.model_tag is not None, 'model_tag is None'

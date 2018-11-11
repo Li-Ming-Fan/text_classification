@@ -12,10 +12,10 @@ import os
 import random
 # random.shuffle(list_ori, random.seed(10))
 
+import tensorflow as tf
+
 import data_utils
 from vocab import Vocab
-
-from model_settings import ModelSettings
 
 """
 interface functions
@@ -28,6 +28,26 @@ for data_processed,
 
 for split, batching,
 for standardizing,
+
+for tfrecord, batch_iter
+
+#
+# data_utils
+#
+
+
+data_raw = data_utils.load_from_file_raw(item)
+
+data_seg = data_utils.clean_and_seg_list_raw(data_raw)
+data_c = data_utils.convert_data_seg_to_ids(vocab, data_seg)
+
+self.vocab = data_utils.build_vocab_tokens(self.data_seg, self.vocab_filter_cnt)
+
+
+data_utils.save_data_to_pkl(self.data_examples, file_path)
+
+self.data_examples = data_utils.load_data_from_pkl(file_path)
+
 
 """
 
@@ -51,9 +71,9 @@ class Dataset():
         #
         # data_raw files
         self.list_files = list_files
-        self.data_raw = []
-        self.data_seg = []  
-        self.data_converted = []   # data_examples
+        self.data_raw = []                  # data_raw
+        self.data_seg = []                  # data_seg
+        self.data_examples = []             # data_examples
         #
         
     #
@@ -118,6 +138,7 @@ class Dataset():
         self.vocab.save_embeddings_to_file(file_emb)
     
     #
+    # task-independent
     # load data_raw
     def load_data_raw(self):
         """ just load to self.data_raw,
@@ -130,6 +151,7 @@ class Dataset():
         # self.data_raw = data_utils.load_from_file_raw(self.list_files[0])
     
     #
+    # taks-related
     # load, seg and convert
     def prepare_processed_data(self, load_vocab):
         """ prepare data to train and test
@@ -149,11 +171,12 @@ class Dataset():
         #
         # convert
         print('convert to ids ...')
-        self.data_converted = data_utils.convert_data_seg_to_ids(self.vocab, self.data_seg)
+        self.data_examples = data_utils.convert_data_seg_to_ids(self.vocab, self.data_seg)
         #        
         print('preparation done.')
         
     #
+    # task-independent
     def save_processed_data(self):
         """
         """
@@ -161,7 +184,7 @@ class Dataset():
         if not os.path.exists(self.dir_data_examples): os.makedirs(self.dir_data_examples)
         
         file_path = os.path.join(self.dir_data_examples, 'data_examples.pkl')
-        data_utils.save_data_to_pkl(self.data_converted, file_path)
+        data_utils.save_data_to_pkl(self.data_examples, file_path)
 
         
     def load_processed_data(self):
@@ -171,7 +194,7 @@ class Dataset():
         self.load_vocab_tokens_and_emb()
         #
         file_path = os.path.join(self.dir_data_examples, 'data_examples.pkl')
-        self.data_converted = data_utils.load_data_from_pkl(file_path)
+        self.data_examples = data_utils.load_data_from_pkl(file_path)
         
     #
     # task-independent
@@ -198,6 +221,7 @@ class Dataset():
         
         return data_examples
     
+    #
     @staticmethod
     def do_batching_data(data_examples, batch_size, shuffle_seed = None):
         
@@ -221,8 +245,8 @@ class Dataset():
             num_batches += 1
             data = data_examples[start_id:]
             #
-            d = batch_size - len(data)
-            data.extend( data_examples[0:d] )
+            # d = batch_size - len(data)
+            # data.extend( data_examples[0:d] )
             #
             batches.append( data )
         
@@ -272,6 +296,62 @@ class Dataset():
             
         return x_padded, x_len
     
+    #
+    # tfrecord
+    #
+    # task-related
+    @staticmethod
+    def generate_tfrecords(data_examples, tfrecod_filepath):
+    
+        with tf.python_io.TFRecordWriter(tfrecod_filepath) as writer:  
+            for feature, label in data_examples:
+                
+                mapped = map(lambda idx: tf.train.Feature(int64_list = tf.train.Int64List(value = [idx])),
+                             feature)
+                seq_feature = list(mapped)
+                
+                var_len_dict = {
+                        'sequence': tf.train.FeatureList(feature = seq_feature) }                
+                fixed_len_dict = {
+                        'label': tf.train.Feature(int64_list = tf.train.Int64List(value = [label] )) }
+                
+                #
+                example = tf.train.SequenceExample(
+                        feature_lists = tf.train.FeatureLists(feature_list = var_len_dict),
+                        context = tf.train.Features(feature = fixed_len_dict) )
+                writer.write(example.SerializeToString())
+    
+    @staticmethod
+    def single_example_parser(serialized_example):
+        
+        sequence_features = {"sequence": tf.FixedLenSequenceFeature([], dtype = tf.int64) }
+        context_features = {"label": tf.FixedLenFeature([], dtype = tf.int64) }
+
+        context_parsed, sequence_parsed = tf.parse_single_sequence_example(
+            serialized = serialized_example,
+            context_features = context_features,
+            sequence_features = sequence_features )
+    
+        labels = context_parsed['label']
+        sequences = sequence_parsed['sequence']
+        
+        return sequences, labels
+    
+    #
+    # task-independent
+    @staticmethod
+    def get_batched_data(tfrecord_filenames, single_example_parser,
+                         batch_size, padded_shapes,
+                         num_epochs = 1, buffer_size = 100000):
+        
+        dataset = tf.data.TFRecordDataset(tfrecord_filenames) \
+            .map(single_example_parser) \
+            .repeat(num_epochs) \
+            .shuffle(buffer_size) \
+            .padded_batch(batch_size, padded_shapes = padded_shapes) \
+        
+        return dataset.make_one_shot_iterator().get_next()
+    
     
 if __name__ == '__main__':
     
@@ -294,45 +374,100 @@ if __name__ == '__main__':
     dataset.save_processed_data()          # save or NOT
     #
     print('prepared')
-    #
-    
-    #
-    # load
-    dataset = Dataset(list_files)
-    dataset.load_processed_data()
-    #
-    print('loaded')
-    
+    # 
     
     #
     # split
-    data_examples = dataset.data_converted
+    data_examples = dataset.data_examples
     #
-    data_train, data_valid = Dataset.split_train_and_test(data_examples,
-                                                          ratio_split = 0.8)
+    data_train, data_test = Dataset.split_train_and_test(data_examples,
+                                                         ratio_split = 0.9)
+    data_train, data_valid = Dataset.split_train_and_test(data_train,
+                                                          ratio_split = 0.9)
     #
     data_train = Dataset.do_balancing_classes(data_train)
     #
-    train_batches = Dataset.do_batching_data(data_train, 32)
-    test_batches = Dataset.do_batching_data(data_valid, 32)
+    print('split')
+    #
+    # train_batches = Dataset.do_batching_data(data_train, 32)
+    # test_batches = Dataset.do_batching_data(data_valid, 32)
+    #
     
     #
     # from collections import namedtuple
     # Settings = namedtuple('Settings', ['vocab','min_seq_len','max_seq_len'])
     # settings = Settings(dataset.vocab, 5, 1000)
-    settings = ModelSettings(vocab = dataset.vocab)
-    
-    train_batches_padded = Dataset.do_standardizing_batches(train_batches, settings)
-    test_batches_padded = Dataset.do_standardizing_batches(test_batches, settings)
-    
-    print('batched')
-    
-    
     #
+    from model_settings import ModelSettings
+    settings = ModelSettings(vocab = dataset.vocab)
+    # train_batches_padded = Dataset.do_standardizing_batches(train_batches, settings)
+    # test_batches_padded = Dataset.do_standardizing_batches(test_batches, settings)
+    # print('batched')
+    #
+    # test for prediction
     dataset.load_data_raw()
     data_raw = dataset.data_raw
+    #
+    num_examples = len(data_raw)
+    data_raw = data_raw[0:min(10, num_examples)]
+    #
     data_pred = Dataset.preprocess_for_prediction(data_raw, settings)    
-    print('prepared for pred')
+    print('test for pred')
+    #
+    # test
+    dataset.load_processed_data()
+    print('test for load')
+    #
 
+    #
+    print('write to tfrecord ...')
+    #
+    tfrecord_filename = './data_examples/data_train.tfrecord'
+    Dataset.generate_tfrecords(data_train, tfrecord_filename)
+    #
+    tfrecord_filename = './data_examples/data_valid.tfrecord'
+    Dataset.generate_tfrecords(data_valid, tfrecord_filename)
+    #
+    tfrecord_filename = './data_examples/data_test.tfrecord'
+    Dataset.generate_tfrecords(data_test, tfrecord_filename)
+    #    
+    print('written')
+    #
+
+    batch = Dataset.get_batched_data([ tfrecord_filename ],
+                                     Dataset.single_example_parser,
+                                     batch_size = 2,
+                                     padded_shapes = ([None], []),
+                                     num_epochs = 2,
+                                     buffer_size = 100000)
+    """
+    #
+    def model(features, labels):
+        return features, labels
+    
+    out = model(*batch)
+
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    
+    with tf.Session(config=config) as sess:
+        init_op = tf.group(tf.global_variables_initializer(),
+                           tf.local_variables_initializer())
+        sess.run(init_op)
+        
+        coord = tf.train.Coordinator()
+        threads = tf.train.start_queue_runners(sess = sess, coord = coord)
+        try:
+            while not coord.should_stop():
+                print(sess.run(out))
+
+        except tf.errors.OutOfRangeError:
+            print("done training")
+        finally:
+            coord.request_stop()
+        coord.join(threads)
+        
+    """
+    
     
 

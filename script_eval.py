@@ -1,4 +1,8 @@
 # -*- coding: utf-8 -*-
+"""
+@author: limingfan
+
+"""
 
 import os
 
@@ -22,7 +26,8 @@ elif model_tag == 'rnn':
     from model_graph_rnn import build_model_graph
 elif model_tag == 'rnf':
     from model_graph_rnf import build_model_graph
-    
+
+ 
 # 
 # data
 dataset = Dataset()
@@ -32,21 +37,6 @@ train_tfrecords = ["./data_examples/data_train.tfrecord"]
 valid_tfrecords = ["./data_examples/data_valid.tfrecord"]
 #
 
-# train
-#
-settings = ModelSettings()
-settings.vocab = dataset.vocab
-settings.model_tag = model_tag
-settings.model_graph_builder = build_model_graph
-settings.is_train = True
-settings.check_settings()
-
-#
-model = ModelWrapper(settings)
-model.train_and_valid(train_tfrecords, valid_tfrecords)
-#
-
-# eval best
 #
 settings = ModelSettings()
 settings.vocab = dataset.vocab
@@ -63,6 +53,9 @@ settings.check_settings()
 #
 model = ModelWrapper(settings)
 dir_ckpt = model.model_dir + '_best'
+#
 loss, acc = model.evaluate(valid_tfrecords, dir_ckpt, flag_log_info = True)
 #
+
+
 
