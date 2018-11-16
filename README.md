@@ -18,7 +18,7 @@ The train/valid/pred procedures for supervised learnings are much the same for d
 * CNN
 * CNN-RNF
 * RNN + Attention-Pooling
-* CNN + Self-Matching
+* CNN + Self-Attention
 
 ## Description
 
