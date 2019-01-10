@@ -7,90 +7,82 @@ import io
 
 class Vocab(object):
     
-    def __init__(self, lower=False):
-        self.id2token = {}
-        self.token2id = {}
-        self.token_cnt = {}
+    pad_token = '<pad>'
+    unk_token = '<unk>'
+    start_token = '<start>'
+    end_token = '<end>'
+    
+    def __init__(self, lower = False, initial_tokens = []):
+        """
+        """
+        self.dict_id2token = {}
+        self.dict_token2id = {}
+        self.dict_token_cnt = {}
         self.lower = lower
 
-        self.emb_dim = 200
+        self.emb_dim = 64
         self.embeddings = None
 
-        self.pad_token = '<pad>'
-        self.unk_token = '<unk>'
-        self.sos_token = '<sos>'
-        self.eos_token = '<eos>'
+        self.add(self.pad_token , 10000)  # make pad_token id: 0
+        self.add(self.unk_token , 10000)
+        self.add(self.start_token , 10000)
+        self.add(self.end_token , 10000)
         
-        self.initial_tokens = []
-        self.initial_tokens.extend([self.pad_token, self.unk_token, self.sos_token, self.eos_token])
+        self.initial_tokens = initial_tokens
         for token in self.initial_tokens:
             self.add(token, cnt = 10000)
 
     def size(self):
-        return len(self.id2token)
+        return len(self.dict_id2token)
 
     def get_id(self, token):
         token = token.lower() if self.lower else token
         try:
-            return self.token2id[token]
+            return self.dict_token2id[token]
         except KeyError:
-            return self.token2id[self.unk_token]
+            return self.dict_token2id[self.unk_token]
 
     def get_token(self, idx):
         try:
-            return self.id2token[idx]
+            return self.dict_id2token[idx]
         except KeyError:
             return self.unk_token
 
     def add(self, token, cnt=1):
         #
         token = token.lower() if self.lower else token
-        if token in self.token2id:
-            idx = self.token2id[token]
+        if token in self.dict_token2id:
+            idx = self.dict_token2id[token]
+            # print('same token: %s' % token)
         else:
-            idx = len(self.id2token)
-            self.id2token[idx] = token
-            self.token2id[token] = idx
+            idx = len(self.dict_id2token)
+            self.dict_id2token[idx] = token
+            self.dict_token2id[token] = idx
         if cnt > 0:
-            if token in self.token_cnt:
-                self.token_cnt[token] += cnt
+            if token in self.dict_token_cnt:
+                self.dict_token_cnt[token] += cnt
             else:
-                self.token_cnt[token] = cnt
+                self.dict_token_cnt[token] = cnt
         return idx
-
-    def filter_tokens_by_cnt(self, min_cnt):
-        #
-        #filtered_tokens = [token for token in self.token2id if self.token_cnt[token] >= min_cnt]
-        filtered_tokens = [self.id2token[idd] for idd in range(self.size()) \
-                                  if self.token_cnt[self.id2token[idd]] >= min_cnt]
-        # rebuild the token x id map
-        self.token2id = {}
-        self.id2token = {}
-        for token in self.initial_tokens:
-            self.add(token, cnt=0)
-        for token in filtered_tokens:
-            self.add(token, cnt=0)
-            
-    def load_tokens_from_corpus(self, corp):
-        """ load tokens from corpus (list)
-            with each item in the list as a list of tokens 
-        """
-        for item in corp:
-            for word in item:
-                self.add(word)
                 
-    def load_tokens_from_file(self, file_path):
-        """ load tokens from file
+    def add_tokens_from_file(self, file_path):
+        """ add tokens from file
             with one token in one line
         """
         fp = open(file_path, 'r', encoding='utf-8')
         lines = fp.readlines()
         fp.close()
+        self.add_tokens_from_lines(lines)
         
+    def add_tokens_from_lines(self, lines):
+        """ add tokens from lines
+            with one token in one line
+        """
         token = ' '        
         for idx, line in enumerate(lines):
             if line.startswith(' '):
                 self.add(' ')
+                print('WARNING: blank token')
                 continue
             #            
             str_arr = line.strip().split()  #
@@ -103,15 +95,43 @@ class Vocab(object):
             # token = line.rstrip('\n')
             # print(token)
             self.add(token)
+        #
+        print('num lines: %d' % (idx + 1) )
+        print('num tokens after loading: %d' % len(self.dict_id2token))
+        #
+        
+    def add_tokens_from_corpus(self, corp):
+        """ load tokens from corpus (list)
+            with each item in the list as a list of tokens 
+        """
+        for item in corp:
+            for word in item:
+                self.add(word)
+            
+    def filter_tokens_by_cnt(self, min_cnt):
+        #
+        #filtered_tokens = [token for token in self.token2id if self.token_cnt[token] >= min_cnt]
+        filtered_tokens = [self.dict_id2token[idd] for idd in range(self.size())
+                                   if self.dict_token_cnt[self.dict_id2token[idd]] >= min_cnt]
+        # rebuild the token ~ id map
+        self.dict_token2id = {}
+        self.dict_id2token = {}
+        self.add(self.pad_token, 0)   # 0
+        self.add(self.unk_token, 0)
+        self.add(self.start_token, 0)
+        self.add(self.end_token, 0)
+        for token in self.initial_tokens:
+            self.add(token, cnt=0)
+        for token in filtered_tokens:
+            self.add(token, cnt=0)
             
     def save_tokens_to_file(self, file_path):
         """ save tokens to file
             with one token in one line
         """
         with open(file_path, 'w', encoding='utf-8') as fp:
-            #for token in self.token2id.keys():
-            for idd in range(self.size()):            
-                fp.write(self.id2token[idd] + '\n')
+            for idd in range(self.size()):
+                fp.write(self.dict_id2token[idd] + '\n')
 
     def randomly_init_embeddings(self, emb_dim):
         #
@@ -121,6 +141,10 @@ class Vocab(object):
         #for token in [self.pad_token]: self.embeddings[self.get_id(token)] = np.zeros([self.emb_dim])
         
     def load_pretrained_embeddings(self, emb_path, load_existing = True):
+        #
+        if emb_path is None:
+            self.randomly_init_embeddings(self.emb_dim)
+            return
         #
         if emb_path.endswith('bin'):
             self._load_pretrained_embeddings_bin(emb_path, load_existing)
@@ -187,7 +211,7 @@ class Vocab(object):
         # self.embeddings = np.zeros([self.size(), self.emb_dim])
         #
         # load embeddings        
-        for token in self.token2id.keys():
+        for token in self.dict_token2id.keys():
             if token in trained_embeddings:
                 self.embeddings[self.get_id(token)] = trained_embeddings[token]
     
@@ -208,7 +232,7 @@ class Vocab(object):
                 token = contents[0]
                 # print(token)
                 #
-                if load_existing and token not in self.token2id:
+                if load_existing and token not in self.dict_token2id:
                     continue  # only existing tokens
                 #
                 trained_embeddings[token] = list(map(float, contents[1:]))
@@ -226,7 +250,7 @@ class Vocab(object):
         # self.embeddings = np.zeros([self.size(), self.emb_dim])
         #
         # load embeddings        
-        for token in self.token2id.keys():
+        for token in self.dict_token2id.keys():
             if token in trained_embeddings:
                 self.embeddings[self.get_id(token)] = trained_embeddings[token]
                 
@@ -249,7 +273,7 @@ class Vocab(object):
             fp.write(emb_dim_str.encode('utf-8'))
             #
             for idx in range(self.size()):
-                word_and_space = self.id2token[idx] + ' '
+                word_and_space = self.dict_id2token[idx] + ' '
                 fp.write(bytes(word_and_space, encoding = "utf-8"))  # str to bytes
                 
                 emb_value = self.embeddings[idx]
@@ -265,7 +289,7 @@ class Vocab(object):
         #
         with open(emb_path, 'w', encoding = 'utf-8') as fp:
             for idd in range(self.size()):
-                token = self.id2token[idd]
+                token = self.dict_id2token[idd]
                 emb_str = map(str, self.embeddings[idd])
                 line = token + ' ' + ' '.join(emb_str) + '\n'
                 fp.write(line)
@@ -292,13 +316,25 @@ class Vocab(object):
 #
 if __name__ == '__main__':
     
+    import time
+    
     vocab = Vocab()
     
-    vocab.load_tokens_from_file('./vocab/vocab_tokens.txt')
+    vocab.add_tokens_from_file('./vocab/vocab_tokens.txt')
     print('tokens loaded from vocab_tokens.txt')
     print(vocab.size())
     
-    vocab.load_tokens_from_file('./vocab/vocab_emb.txt')
+    s = time.time()
+    vocab.load_pretrained_embeddings('./vocab/vocab_emb.bin')
+    e = time.time()
+    print('emb loaded from vocab_emb.bin')
+    print('time cost: %g' % (e-s))
+    
+    vocab.save_embeddings_to_file('./vocab/vocab_emb.txt')
+    print('emb saved to vocab_emb.txt')
+    
+    #
+    vocab.add_tokens_from_file('./vocab/vocab_emb.txt')
     print('tokens loaded from vocab_emb.txt')
     print(vocab.size())
     print()
@@ -308,8 +344,9 @@ if __name__ == '__main__':
     print()
     
     # print(vocab.embeddings[vocab.get_id(' ')])
+    # print()
     
-    import time
+    #
     s = time.time()
     vocab.load_pretrained_embeddings('./vocab/vocab_emb.txt')
     e = time.time()    
@@ -318,22 +355,17 @@ if __name__ == '__main__':
     print(vocab.size())
     print(vocab.emb_dim)
     
-    print(vocab.embeddings[vocab.get_id(' ')])
-    print()
-    
-    
+    # print(vocab.embeddings[vocab.get_id(' ')])
+    # print()
+
     vocab.save_embeddings_to_file('./vocab/vocab_emb.bin')
     print('emb saved to vocab_emb.bin')
     
-    vocab.load_tokens_from_file('./vocab/vocab_tokens.txt')
+    
+    #
+    vocab.add_tokens_from_file('./vocab/vocab_tokens.txt')
     print('tokens loaded from vocab_tokens.txt')
     print(vocab.size())
-    
-    s = time.time()
-    vocab.load_pretrained_embeddings('./vocab/vocab_emb.bin')
-    e = time.time()
-    print('emb loaded from vocab_emb.bin')
-    print('time cost: %g' % (e-s))
     
     print(vocab.embeddings[vocab.get_id(' ')])
     print()

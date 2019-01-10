@@ -7,7 +7,17 @@ Created on Sat Sep 29 04:11:16 2018
 
 import pickle
 
-import jieba
+import jieba as segmenter
+
+import pkuseg
+# segmenter = pkuseg.pkuseg()
+
+"""
+lexicon = ['北京大学', '北京天安门']                     # 希望分词时用户词典中的词固定不分开
+seg = pkuseg.pkuseg(user_dict=lexicon)                  # 加载模型，给定用户词典
+text = seg.cut('我爱北京天安门')                         # 进行分词
+print(text)
+"""
 
 from vocab import Vocab
 
@@ -45,7 +55,7 @@ def load_from_file_raw(file_raw):
 def clean_and_seg_single_text(text):        
     text = text.strip()
     #
-    seg_list = jieba.cut(text, cut_all = False)
+    seg_list = segmenter.cut(text)
     tokens = list(seg_list)
     #
     #print(text)
@@ -79,7 +89,7 @@ def build_vocab_tokens(data_seg, filter_cnt = 5):
     for tokens, label in data_seg:
         corp.append(tokens)
     #
-    vocab.load_tokens_from_corpus(corp)
+    vocab.add_tokens_from_corpus(corp)
     #
     vocab.filter_tokens_by_cnt(filter_cnt)
     #    

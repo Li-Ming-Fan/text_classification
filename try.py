@@ -32,3 +32,16 @@ print(c)
 
 print()
 print(sess.run(tf.cast([0, 1.2, -1.0], dtype = tf.bool)) )
+
+
+import pkuseg
+
+seg = pkuseg.pkuseg()                                  # 以默认配置加载模型
+text = seg.cut('我爱北京天安门')                        # 进行分词
+print(text)
+
+lexicon = ['北京大学', '北京天安门']                     # 希望分词时用户词典中的词固定不分开
+seg = pkuseg.pkuseg(user_dict=lexicon)                  # 加载模型，给定用户词典
+text = seg.cut('我爱北京天安门')                         # 进行分词
+print(text)
+

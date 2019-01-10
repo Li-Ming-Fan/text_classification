@@ -7,14 +7,22 @@ Created on Tue Aug 28 21:12:23 2018
 
 import os
 import time
+import logging
 
 
 class ModelSettings(object):
     def __init__(self, vocab = None, is_train = None):
-
-        # model macro     
+        
+        # model graph
+        self.model_tag = None
+        self.model_graph_builder = None        
+        #
+        
+        # data macro     
         self.min_seq_len = 5      #
         self.max_seq_len = 300   #
+        
+        # model macro
         self.hidden = 128
         self.att_dim = 128
         #
@@ -24,46 +32,47 @@ class ModelSettings(object):
         self.vocab = vocab
         self.emb_tune = 0  # 1 for tune, 0 for not
         
-        # 
-        # model builder
-        self.model_tag = None
-        self.model_graph_builder = None        
-        #
-        self.tfrecord_filelist = []
-        self.buffer_size = 30000
-        self.padded_shapes = ([None], [])    # ([None], [])
+        # train
+        self.gpu_mem_growth = True
+        self.log_device = False
+        
+        self.with_bucket = False
+        self.is_train = is_train
+        
+        self.num_epochs = 100     
+        self.batch_size = 32
+        self.batch_size_eval = 32 
+        
+        self.reg_lambda = 0.0001  # 0.0, 0.0001
+        self.grad_clip = 2.0  # 0.0, 5.0, 8.0, 2.0
+        self.keep_prob = 0.8  # 1.0, 0.7, 0.5
+        
+        self.learning_rate_base = 0.001   #
+        self.ratio_decay = 0.9
+        self.patience_decay = 3000
+        self.learning_rate_minimum = 0.000001
+        
+        self.save_period_batch = 100
+        self.valid_period_batch = 100
         #
         
         # inputs/outputs        
         self.inputs_train_name = ['input_x:0', 'input_y:0']
+        self.outputs_train_name = ['score/logits:0']
+        
         self.inputs_predict_name = ['input_x:0']     
         self.outputs_predict_name = ['score/logits:0']
+        
         self.pb_outputs_name = ['score/logits']
         self.is_train = is_train
         #
-        self.loss_name = 'loss:0'
+        self.loss_name = 'loss/loss:0'
         self.metric_name = 'accuracy/metric:0'
+        self.use_metric = True
         #
-        
-        # train
-        self.gpu_mem_growth = False
-        
-        self.num_epochs = 100     
-        self.batch_size = 64
-        self.batch_size_eval = 128 
-        
-        self.reg_lambda = 0.0001  # 0.0, 0.0001
-        self.grad_clip = 8.0  # 0.0, 5.0, 8.0
-        self.keep_prob = 0.7  # 1.0, 0.7, 0.5
-        
-        self.learning_rate_base = 0.001         
-        self.ratio_decay = 0.9
-        self.patience_decay = 1000
-        self.patience_stop = 5000
-        
-        self.save_per_batch = 100
-        self.valid_per_batch = 100
-
+        self.debug_tensors_name = ['score/logits:0']
+        #
+       
         #
         # save and log, if not set, default values will be used.
         self.model_dir = None
@@ -74,24 +83,24 @@ class ModelSettings(object):
         #
     
     def check_settings(self):
-        
+        """ assert and make directories
+        """
         assert self.vocab is not None, 'vocab is None'
         
-        """ 
-            The following in this file is task-independent.
-            
-        """
         # assert
-        if self.is_train is None:
-            assert False, 'is_train not assigned'
-        elif self.is_train == False:
+        """
+        if self.is_train == False:
             assert len(self.inputs_predict_name), 'inputs_predict_name is []'
             assert len(self.outputs_predict_name), 'outputs_predict_name is []'
         else:
-            assert self.model_graph_builder is not None, 'model_graph_builder is None'
-            assert self.loss_name is not None, 'loss_name is None'
+            assert self.model_graph is not None, 'model_graph is None'
+            assert len(self.inputs_train_name), 'inputs_train_name is []'
+            assert len(self.outputs_train_name), 'outputs_train_name is []'
+            assert self.loss_name is not None, 'loss_name is None'            
+        if self.use_metric:
             assert self.metric_name is not None, 'metric_name is None'
-            
+        """            
+        assert self.is_train is not None, 'is_train not assigned'               
         assert self.model_tag is not None, 'model_tag is None'
         
         # model dir
@@ -100,15 +109,33 @@ class ModelSettings(object):
         if self.pb_file is None: self.pb_file = os.path.join(self.model_dir + '_best',
                                                              self.model_name + '.pb')
         
-        # log
+        if not os.path.exists(self.model_dir): os.mkdir(self.model_dir)
+        if not os.path.exists(self.model_dir + '_best'): os.mkdir(self.model_dir + '_best')
+        
+        # log dir
         if self.log_dir is None: self.log_dir = './log'
         str_datetime = time.strftime("%Y-%m-%d-%H-%M")       
-        if self.log_path is None: self.log_path = os.path.join(self.log_dir,
-                                                   self.model_name + "_" + str_datetime +".txt")
+        if self.log_path is None: self.log_path = os.path.join(
+                self.log_dir, self.model_name + "_" + str_datetime +".txt")
         
+        if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
+        #
+        self.logger = logging.getLogger(self.log_path)  # use log_path as log_name
+        self.logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(self.log_path)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        self.logger.addHandler(handler)
+        # self.logger.info('test')
         #
         self.display()
         #
+        
+    def create_or_reset_log_file(self):        
+        with open(self.log_path, 'w', encoding='utf-8'):
+            pass
         
     def display(self):
         
@@ -127,6 +154,7 @@ class ModelSettings(object):
                 continue
             info_dict[str(name)] = value        
         return info_dict
+    
         
 if __name__ == '__main__':
     
@@ -143,6 +171,4 @@ if __name__ == '__main__':
     
     print(sett.__dict__.keys())
     print()
-    
-
     
