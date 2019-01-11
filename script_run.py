@@ -29,8 +29,8 @@ def parse_args():
                               default = 'test', help = 'run mode')
     
     model_related = parser.add_argument_group('model related settings')
-    model_related.add_argument('--model_tag', type=str,
-                               default = 'cnn', help='model_tag')
+    model_related.add_argument('--model', type=str,
+                               default = 'csm', help='model tag')
     
     return parser.parse_args()
 
@@ -289,7 +289,7 @@ if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     #
-    model_tag = args.model_tag    
+    model_tag = args.model    
     #
     if model_tag.startswith('cnn'):
         from model_graph_cnn import build_graph
@@ -302,7 +302,7 @@ if __name__ == '__main__':
     vocab = dataset.vocab
     #
     settings = ModelSettings(vocab)
-    settings.model_tag = args.model_tag
+    settings.model_tag = model_tag
     settings.model_graph = build_graph
     #    
     if run_mode == 'predict':

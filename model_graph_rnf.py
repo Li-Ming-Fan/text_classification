@@ -61,20 +61,19 @@ def cnn_rnf_layer(seq, seq_len, R, rnn_size, padding='valid', scope='cnn_rnf'):
     return h
 
 #
-def build_model_graph(settings, data):
+def build_graph(config):
 
-    input_x, input_y = data
+    input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
+    input_y = tf.placeholder(tf.int64, [None], name='input_y')
+    
+    keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32, trainable=False)
+    #
 
     with tf.device('/cpu:0'):
-        
-        input_x = tf.identity(input_x, name = "input_x")
-        input_y = tf.identity(input_y, name = "input_y")
-        
-        #
         emb_mat = tf.get_variable('embedding',
-                                  [settings.vocab.size(), settings.vocab.emb_dim],
-                                  initializer=tf.constant_initializer(settings.vocab.embeddings),
-                                  trainable = settings.emb_tune)
+                                  [config.vocab.size(), config.vocab.emb_dim],
+                                  initializer=tf.constant_initializer(config.vocab.embeddings),
+                                  trainable = config.emb_tune)
         seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
         
         seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
@@ -98,56 +97,43 @@ def build_model_graph(settings, data):
 
     with tf.name_scope("score"):
         #
-        fc = tf.nn.dropout(feat, settings.keep_prob)
+        fc = tf.nn.dropout(feat, keep_prob)
         fc = tf.layers.dense(fc, 128, name='fc1')            
         fc = tf.nn.relu(fc)
         
-        fc = tf.nn.dropout(fc, settings.keep_prob)
-        logits = tf.layers.dense(fc, settings.num_classes, name='fc2')
+        fc = tf.nn.dropout(fc, keep_prob)
+        logits = tf.layers.dense(fc, config.num_classes, name='fc2')
         # logits = tf.nn.sigmoid(fc)
         
-        normed_logits = tf.nn.softmax(logits, name='logits')
+        normed_logits = tf.nn.softmax(logits, name='logits')          
+        y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
         
-    with tf.name_scope("loss_infer"):
+    with tf.name_scope("loss"):
         #
         cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits,
                                                                        labels = input_y)
-        loss_infer = tf.reduce_mean(cross_entropy, name = 'loss_infer')
+        loss = tf.reduce_mean(cross_entropy, name = 'loss')
 
     with tf.name_scope("accuracy"):
         #
-        y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
         correct_pred = tf.equal(input_y, y_pred_cls)
         acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name = 'metric')
     
     #
-    if settings.keep_prob < 1.0:  # train, eval
-        print(input_x)
-        print(input_y)
-        #
-        print(normed_logits)
-        print(acc)
-        print(loss_infer)
-        print()
+    print(normed_logits)
+    print(acc)
+    print(loss)
+    print()
     #
-
+    
     #
     debug_tensor = normed_logits
     #
-    
-    #
     global debug_tensor_name
     debug_tensor_name = debug_tensor.name
-    #
-    if settings.keep_prob < 1.0:
-        print('debug_tensor_name: ' + debug_tensor_name)
-        print(debug_tensor)
-        print()
-    #
-    
-    #
-    return normed_logits, acc, loss_infer
-    # results, metric, loss
+    print('debug_tensor_name: ' + debug_tensor_name)
+    print(debug_tensor)
+    print()
     #
     
 def debug_the_model(model, data_batches):
