@@ -26,7 +26,7 @@ To run this repo:
 
 1, python data_set.py
 
-2, python script_run.py --model=cnn --mode=train
+2, python script_model_runner.py --model=cnn --mode=train
 
 </br>
 
