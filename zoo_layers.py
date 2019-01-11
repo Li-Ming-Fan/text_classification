@@ -8,6 +8,7 @@ Created on Sat Sep  1 17:14:19 2018
 
 import tensorflow as tf
 
+#
 def dense(inputs, hidden, use_bias=True, scope="dense"):
     with tf.variable_scope(scope):
         shape = tf.shape(inputs)
@@ -26,19 +27,20 @@ def dense(inputs, hidden, use_bias=True, scope="dense"):
         return res
     
 def dropout(inputs, keep_prob, mode="recurrent"):
-    if keep_prob is not None and keep_prob < 1.0:
-        noise_shape = None
-        scale = 1.0
-        shape = tf.shape(inputs)
-        if mode == "embedding":
-            noise_shape = [shape[0], 1]
-            scale = keep_prob
-        if mode == "recurrent" and len(inputs.get_shape().as_list()) == 3:
-            # batch_major
-            noise_shape = [shape[0], 1, shape[-1]]
-        inputs = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape) * scale
+    noise_shape = None
+    scale = 1.0
+    shape = tf.shape(inputs)
+    if mode == "embedding":
+        noise_shape = [shape[0], 1]
+        scale = keep_prob
+    if mode == "recurrent" and len(inputs.get_shape().as_list()) == 3:
+        # batch_major
+        noise_shape = [shape[0], 1, shape[-1]]
+    inputs = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape) * scale
+    
     return inputs
-   
+
+#
 def do_mask_padding_elems(x, mask):
     # make padding elements in x to -inf,
     # for next step of softmax,
@@ -51,8 +53,8 @@ def dot_att_layer(inputs, memory, mask_m, hidden,
                   keep_prob=1.0, gating=False, scope="dot_attention"):
     with tf.variable_scope(scope):
 
-        d_inputs = dropout(inputs, keep_prob=keep_prob)  # [B, TQ, D]
-        d_memory = dropout(memory, keep_prob=keep_prob)
+        d_inputs = tf.nn.dropout(inputs, keep_prob=keep_prob)  # [B, TQ, D]
+        d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)
         TQ = tf.shape(inputs)[1]
 
         with tf.variable_scope("attention"):
@@ -69,7 +71,7 @@ def dot_att_layer(inputs, memory, mask_m, hidden,
         if gating:
             with tf.variable_scope("gate"):
                 dim = res.get_shape().as_list()[-1]
-                d_res = dropout(res, keep_prob=keep_prob)
+                d_res = tf.nn.dropout(res, keep_prob=keep_prob)
                 gate = tf.nn.sigmoid(dense(d_res, dim, use_bias=False))
                 res = tf.multiply(res, gate)
         
@@ -82,7 +84,7 @@ def att_pool_layer(seq, query, seq_mask, att_dim,
         # seq: [B, T, D]
         # query: [B, DQ]
         # seq_mask: [B, T]
-        d_seq = dropout(seq, keep_prob=keep_prob)
+        d_seq = tf.nn.dropout(seq, keep_prob=keep_prob)
         seq_shape = tf.shape(seq)
         T = seq_shape[1]
         D = seq_shape[2]
@@ -110,8 +112,7 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     #
     # time_major = False
     #
-    if keep_prob < 1.0:
-        input_sequence = dropout(input_sequence, keep_prob)
+    input_sequence = tf.nn.dropout(input_sequence, keep_prob)
     #
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
     act = activation or tf.nn.tanh

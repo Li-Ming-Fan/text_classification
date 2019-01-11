@@ -293,7 +293,12 @@ if __name__ == '__main__':
     #
     if model_tag.startswith('cnn'):
         from model_graph_cnn import build_graph
-        
+    elif model_tag.startswith('rnn'):
+        from model_graph_rnn import build_graph
+    elif model_tag.startswith('rnf'):
+        from model_graph_rnf import build_graph
+    elif model_tag.startswith('csm'):
+        from model_graph_csm import build_graph
         
     #
     # vocab and settings
