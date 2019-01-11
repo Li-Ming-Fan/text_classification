@@ -94,13 +94,11 @@ class Dataset():
         print('preparation done.')
         
     #
-    # task-independent
+    # data_examples, task-independent
     def save_data_examples(self, file_basename = 'data_examples.pkl'):
         """
         """
         print('save data_examples ...')
-        self.save_vocab_tokens_and_emb()
-        #
         if not os.path.exists(self.dir_data_examples): os.makedirs(self.dir_data_examples)
         #
         file_path = os.path.join(self.dir_data_examples, file_basename)
@@ -110,13 +108,25 @@ class Dataset():
         """
         """
         print('load data_examples ...')
-        self.load_vocab_tokens()
-        #
         file_path = os.path.join(self.dir_data_examples, file_basename)
         self.data_examples = data_utils.load_data_from_pkl(file_path)
         
     #
     # vocab, task-independent
+    def load_vocab_tokens(self, file_tokens = None, emb_dim = None):
+        """
+        """
+        print('load vocab tokens and randomly initialize emb ...')
+        
+        if file_tokens is None:
+            file_tokens = os.path.join(self.dir_vocab, 'vocab_tokens.txt')
+        if emb_dim is None:
+            emb_dim = self.emb_dim
+
+        self.vocab = Vocab()
+        self.vocab.add_tokens_from_file(file_tokens)
+        self.vocab.randomly_init_embeddings(emb_dim)
+        
     def build_vocab_tokens_and_emb(self):
         
         print('build vocab tokens and emb ...')
@@ -128,19 +138,7 @@ class Dataset():
             self.vocab.load_pretrained_embeddings(self.pretrained_emb_file)             
         else:
             self.vocab.randomly_init_embeddings(self.emb_dim)
-            
-    def load_vocab_tokens(self, file_tokens = None):
-        """
-        """
-        print('load vocab tokens and randomly initialize emb ...')
-        
-        if file_tokens is None:
-            file_tokens = os.path.join(self.dir_vocab, 'vocab_tokens.txt')
-
-        self.vocab = Vocab()
-        self.vocab.add_tokens_from_file(file_tokens)
-        self.vocab.randomly_init_embeddings(self.emb_dim)
-            
+  
     def load_vocab_tokens_and_emb(self, file_tokens = None, file_emb = None):
         """
         """
@@ -172,6 +170,10 @@ class Dataset():
     #
     # task-independent
     @staticmethod
+    def generate_shuffle_seed(num_max = 10000000):
+        return random.randint(1, num_max)
+    
+    @staticmethod
     def split_train_and_test(data_examples, ratio_split = 0.9, shuffle_seed = None):
                
         num_examples = len(data_examples)
@@ -190,7 +192,7 @@ class Dataset():
         return (train_data, test_data)
     
     @staticmethod
-    def do_balancing_classes(data_examples, counts_oversample = None):
+    def do_balancing_classes(data_examples, label_posi, num_classes, num_oversamples = None):
         
         return data_examples
     
@@ -240,16 +242,15 @@ class Dataset():
         for batch in data_batches:
             texts, y = zip(*batch)
             #
-            t_std, _ = Dataset.standardize_list_texts(texts, min_seq_len, max_seq_len)
+            t_std, _ = Dataset.standardize_list_seqs(texts, min_seq_len, max_seq_len)
             #
             batches_normed.append( (t_std, y) )
             
         return batches_normed
     
     @staticmethod
-    def standardize_list_texts(x, min_seq_len=5, max_seq_len=100):
-        """ 
-        """
+    def standardize_list_seqs(x, min_seq_len=5, max_seq_len=100):
+
         x_padded = []
         x_len = []
         padded_len = max(min_seq_len, max([len(item) for item in x]))
@@ -289,13 +290,16 @@ if __name__ == '__main__':
     # prepare
     dataset.prepare_data_examples(load_vocab = False)
     #
-    dataset.save_data_examples()          # save or NOT
+    dataset.save_vocab_tokens_and_emb()     # save or NOT
+    dataset.save_data_examples()            # save or NOT
     #
     print('prepared')
     #
-    # test
+    # test load
+    dataset.load_vocab_tokens_and_emb()
+    dataset.load_vocab_tokens()
     dataset.load_data_examples()
-    print('test for load')
+    print('test load')
     #
     
     #
@@ -307,7 +311,7 @@ if __name__ == '__main__':
     data_train, data_valid = Dataset.split_train_and_test(data_train,
                                                           ratio_split = 0.9)
     #
-    data_train = Dataset.do_balancing_classes(data_train)
+    data_train = Dataset.do_balancing_classes(data_train, 1, 2)
     #
     print('split')
     #
@@ -319,12 +323,7 @@ if __name__ == '__main__':
     
     file_path = os.path.join(dataset.dir_data_examples, 'examples_test.pkl')
     data_utils.save_data_to_pkl(data_test, file_path)
-    
-    #
-    # train_batches = Dataset.do_batching_data(data_train, 32)
-    # test_batches = Dataset.do_batching_data(data_valid, 32)
-    #
-    
+
     #
     # from collections import namedtuple
     # Settings = namedtuple('Settings', ['vocab','min_seq_len','max_seq_len'])
@@ -332,9 +331,15 @@ if __name__ == '__main__':
     #
     from model_settings import ModelSettings
     settings = ModelSettings(vocab = dataset.vocab)
+    #
+    # test batching
+    #
+    # train_batches = Dataset.do_batching_data(data_train, 32)
+    test_batches = Dataset.do_batching_data(data_valid, 32)
+    #
     # train_batches_padded = Dataset.do_standardizing_batches(train_batches, settings)
-    # test_batches_padded = Dataset.do_standardizing_batches(test_batches, settings)
-    # print('batched')
+    test_batches_padded = Dataset.do_standardizing_batches(test_batches, settings)
+    print('batched')
     #
     # test for prediction
     dataset.load_data_raw()
