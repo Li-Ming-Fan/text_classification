@@ -28,6 +28,7 @@ To run this repo:
 
 2, python script_run.py --model=cnn --mode=train
 
+</br>
 
 Requiring package jieba for token-segmentation:
 
