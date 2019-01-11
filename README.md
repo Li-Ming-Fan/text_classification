@@ -7,7 +7,7 @@ Experiments on sentence classification. Task-Independent Model Wrapper.
 
 A supervised learning project commonly has the following modules:
 
-* Dataset module
+* Dataset module (including data-preprocessing, data-batching)
 * Model defining, or graph defining module
 * Training, validation, prediction procedures
 
@@ -26,9 +26,8 @@ To run this repo:
 
 1, python data_set.py
 
-2, python script_train_cnn.py
+2, python script_run.py --model=cnn --mode=train
 
-...
 
 Requiring package jieba for token-segmentation:
 
