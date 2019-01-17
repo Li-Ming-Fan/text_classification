@@ -23,6 +23,8 @@ def parse_args():
                         help = 'debug or not (using debug data or not)')
     parser.add_argument('--gpu', type=str, default = '0',
                         help = 'specify gpu device')
+    parser.add_argument('--note', type=str, default = 'note_something',
+                        help = 'make some useful notes')
 
     data_related = parser.add_argument_group('data related settings')
     data_related.add_argument('--data', choices=['train', 'valid', 'test', 'all'],

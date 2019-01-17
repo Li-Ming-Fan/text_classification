@@ -12,16 +12,16 @@ import tensorflow as tf
 def dense(inputs, hidden, use_bias=True, scope="dense"):
     with tf.variable_scope(scope):
         shape = tf.shape(inputs)
-        dim = inputs.get_shape().as_list()[-1]
-        out_shape = [shape[idx] for idx in range(
-            len(inputs.get_shape().as_list()) - 1)] + [hidden]
+        shape_list = inputs.get_shape().as_list()
+        dim = shape_list[-1]
+        out_shape = [shape[idx] for idx in range(len(shape_list) - 1)] + [hidden]
         flat_inputs = tf.reshape(inputs, [-1, dim])
         W = tf.get_variable("W", [dim, hidden],
                             initializer = tf.variance_scaling_initializer())
         res = tf.matmul(flat_inputs, W)
         if use_bias:
-            b = tf.get_variable(
-                "b", [hidden], initializer = tf.constant_initializer(0.))
+            b = tf.get_variable("b", [hidden],
+                                initializer = tf.constant_initializer(0.))
             res = tf.nn.bias_add(res, b)
         res = tf.reshape(res, out_shape)
         return res
@@ -44,38 +44,44 @@ def dropout(inputs, keep_prob, mode="recurrent"):
 def do_mask_padding_elems(x, mask):
     # make padding elements in x to -inf,
     # for next step of softmax,
-    # mask: 1 for kept-elements, 0 for drop-elements,
-    # x: [batch, time, dim], mask: [batch, time], when batch_major
-    # or ... when time_major
-    return tf.add(x, 1e30 * (tf.cast(mask, tf.float32) - 1) )
+    # (batch, time), or (time, batch), or
+    # (batch, time, units), or (time, batch, units)
+    return tf.add(x, 1e30 * tf.cast(mask - 1, dtype=tf.float32) )
 
-def dot_att_layer(inputs, memory, mask_m, hidden,
+def att_and_pool_layer(query, memory, mask_m_2d, att_dim,
                   keep_prob=1.0, gating=False, scope="dot_attention"):
+    """ batch_major,
+        query: [B, TQ, DQ]
+        memory: [B, TM, DM]
+        mask_m_2d: [B, TM]
+    """
     with tf.variable_scope(scope):
-
-        d_inputs = tf.nn.dropout(inputs, keep_prob=keep_prob)  # [B, TQ, D]
-        d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)
-        TQ = tf.shape(inputs)[1]
-
+        # TQ = tf.shape(query)[1]
         with tf.variable_scope("attention"):
-            inputs_r = tf.nn.relu(dense(d_inputs, hidden, use_bias=False, scope="inputs"))
-            memory_r = tf.nn.relu(dense(d_memory, hidden, use_bias=False, scope="memory"))
+            d_query = tf.nn.dropout(query, keep_prob=keep_prob)  # [B, TQ, D]
+            d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)
+            #
+            inputs_r = tf.nn.relu(dense(d_query, att_dim, use_bias=False, scope="inputs"))
+            memory_r = tf.nn.relu(dense(d_memory, att_dim, use_bias=False, scope="memory"))
             # [B, TQ, TM]
-            att_mat = tf.matmul(inputs_r, tf.transpose(memory_r, [0, 2, 1])) / (hidden ** 0.5)
-            # [B, TQ, TM]
-            mask = tf.tile(tf.expand_dims(mask_m, axis=1), [1, TQ, 1])
-            logits = tf.nn.softmax(do_mask_padding_elems(att_mat, mask))
+            att_mat = tf.matmul(inputs_r, tf.transpose(memory_r, [0, 2, 1])) / (att_dim ** 0.5)
+            # 
+            mask_3d = tf.expand_dims(mask_m_2d, axis=1)  # [B, 1, TM]
+            logits = tf.nn.softmax(do_mask_padding_elems(att_mat, mask_3d)) # [B, TQ, TM]
+            #
+            d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)  # [B, TM, DM]
             outputs = tf.matmul(logits, memory)   # [B, TQ, DM]
-            res = tf.concat([inputs, outputs], axis=2)  # [B, TQ, DQ + DM]
+            #
+            result = tf.concat([query, outputs], axis=2)  # [B, TQ, DQ + DM]
             
         if gating:
             with tf.variable_scope("gate"):
-                dim = res.get_shape().as_list()[-1]
-                d_res = tf.nn.dropout(res, keep_prob=keep_prob)
-                gate = tf.nn.sigmoid(dense(d_res, dim, use_bias=False))
-                res = tf.multiply(res, gate)
+                dim = result.get_shape().as_list()[-1]
+                d_result = tf.nn.dropout(result, keep_prob=keep_prob)
+                gate = tf.nn.sigmoid(dense(d_result, dim, use_bias=False))
+                result = tf.multiply(result, gate)
         
-        return res
+        return result
     
 def att_pool_layer(seq, query, seq_mask, att_dim,
                    keep_prob=1.0, is_train=None, scope="att_pooling"):

@@ -9,7 +9,7 @@ import pickle
 
 import jieba as segmenter
 
-import pkuseg
+# import pkuseg
 # segmenter = pkuseg.pkuseg()
 
 """
