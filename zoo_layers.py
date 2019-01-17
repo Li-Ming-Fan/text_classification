@@ -48,7 +48,7 @@ def do_mask_padding_elems(x, mask):
     # (batch, time, units), or (time, batch, units)
     return tf.add(x, 1e30 * tf.cast(mask - 1, dtype=tf.float32) )
 
-def att_and_pool_layer(query, memory, mask_m_2d, att_dim,
+def dot_att_layer(query, memory, mask_m_2d, att_dim,
                   keep_prob=1.0, gating=False, scope="dot_attention"):
     """ batch_major,
         query: [B, TQ, DQ]
