@@ -17,8 +17,8 @@ The train/valid/pred procedures for supervised learnings are much the same for d
 
 * CNN
 * CNN-RNF
-* RNN + Attention-Pooling
-* CNN + Self-Attention
+* RNN & Attention-Pooling
+* Multi-head Self-Attention
 
 ## Description
 
@@ -26,7 +26,9 @@ To run this repo:
 
 1, python data_set.py
 
-2, python script_runner.py --model=cnn --mode=train
+2, python script_train_and_eval.py --model=cnn
+
+3, python script_predict.py --model=cnn
 
 </br>
 
