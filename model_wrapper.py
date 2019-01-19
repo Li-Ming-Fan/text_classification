@@ -239,7 +239,7 @@ class ModelWrapper():
         if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
         self.load_ckpt(dir_ckpt)
         #
-                
+        
     #
     def assign_dropout_keep_prob(self, keep_prob):
         """
@@ -270,6 +270,9 @@ class ModelWrapper():
                 output_node_names = model.pb_outputs_name)
         with tf.gfile.FastGFile(file_path, mode='wb') as f:
             f.write(constant_graph.SerializeToString())
+        #
+        str_info = 'pb-file saved: %s' % file_path
+        self.logger.info(str_info)
         #
         self.settings.is_train = is_train           #
         #

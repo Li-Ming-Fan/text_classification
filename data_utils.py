@@ -96,23 +96,86 @@ def build_vocab_tokens(data_seg, filter_cnt = 5):
     return vocab
 
 #
-# task-independent
+# statistics
+def do_data_statistics(data_examples, label_posi, num_classes):
+    
+    count = [0] * num_classes
+    for example in data_examples:        
+        label = example[label_posi]      
+        count[label] += 1
+        
+    return count
+
+#
+def segment_sentences(text, delimiters = None):
+    """ 
+    """
+    if delimiters is None:
+        delimiters = ['?', '!', ';', '？', '！', '。', '；', '…', '\n']
+    #
+    text = text.replace('...', '。。。').replace('..', '。。')
+    #
+    # 引用(“ ”)中有句子的情况
+    text = text.replace('"', '').replace('“', '').replace('”', '')
+    #
+    len_text = len(text)
+    
+    sep_posi = []
+    for item in delimiters:
+        posi_start = 0
+        while posi_start < len_text:
+            try:
+                posi = posi_start + text[posi_start:].index(item)  #
+                sep_posi.append(posi)
+                posi_start = posi + 1               
+            except BaseException:
+                break # while
+        #
+    #
+    sep_posi.sort()
+    num_sep = len(sep_posi)
+    #
+    
+    #
+    list_sent = []
+    #
+    if num_sep == 0: return [ text ]
+    #
+    posi_last = 0
+    for idx in range(0, num_sep - 1):
+        posi_curr = sep_posi[idx] + 1
+        posi_next = sep_posi[idx + 1]
+        if posi_next > posi_curr:
+            list_sent.append( text[posi_last:posi_curr] )
+            posi_last = posi_curr
+    #
+    posi_curr = sep_posi[-1] + 1
+    if posi_curr == len_text:
+        list_sent.append( text[posi_last:] )
+    else:
+        list_sent.extend( [text[posi_last:posi_curr], text[posi_curr:]] )
+    #
+    return list_sent
+
+#
 def replace_special_symbols(text):
     
     text = text.replace('\u3000', ' ').replace('\u2002', ' ').replace('\u2003', ' ')
     text = text.replace('\xa0', ' ')
-    text = text.replace('\n', ' ').replace('\r', ' ').replace('\t', ' ').replace('\v', ' ')
+    text = text.replace('\n', '').replace('\r', '').replace('\t', '').replace('\v', '')
     
     return text
 
-# task-independent
+#
 def save_data_to_pkl(data, file_path):
     with open(file_path, 'wb') as fp:
         pickle.dump(data, fp)
         
 def load_data_from_pkl(file_path):
     with open(file_path, 'rb') as fp:
-        return pickle.load(fp)
+        data = pickle.load(fp)
+    return data
+
     
     
 #

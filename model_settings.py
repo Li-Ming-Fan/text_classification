@@ -15,7 +15,7 @@ class ModelSettings(object):
         
         # model graph
         self.model_tag = None
-        self.model_graph_builder = None        
+        self.model_graph = None        
         #
         
         # data macro     
@@ -23,7 +23,6 @@ class ModelSettings(object):
         self.max_seq_len = 300   #
         
         # model macro
-        self.hidden = 128
         self.att_dim = 128
         #
         self.num_classes = 2

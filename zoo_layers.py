@@ -5,7 +5,6 @@ Created on Sat Sep  1 17:14:19 2018
 @author: limingfan
 """
 
-
 import tensorflow as tf
 
 #
@@ -33,12 +32,93 @@ def dropout(inputs, keep_prob, mode="recurrent"):
     if mode == "embedding":
         noise_shape = [shape[0], 1]
         scale = keep_prob
+        pass
     if mode == "recurrent" and len(inputs.get_shape().as_list()) == 3:
         # batch_major
         noise_shape = [shape[0], 1, shape[-1]]
+        pass
+    #
     inputs = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape) * scale
-    
     return inputs
+
+#
+def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
+    
+    with tf.variable_scope(scope):
+        posi = tf.ones_like(input_seq, dtype = tf.float32)
+        posi = tf.cumsum(posi, axis = 1) - tf.constant(1.0)
+        posi = tf.tile(tf.expand_dims(posi, 2), [1, 1, d_posi_emb])        
+        #               
+        dim = tf.ones_like(input_seq, dtype = tf.float32)
+        dim = tf.tile(tf.expand_dims(dim, 2), [1, 1, d_posi_emb])
+        dim = tf.cumsum(dim, axis = 2) - tf.constant(1.0)
+        #
+        d_model_recip = 1.0/ d_model
+        pe = posi * 1e-4**(2 * d_model_recip * dim)
+        #
+        pe_sin = tf.sin(pe)
+        pe_cos = tf.cos(pe)
+        #
+        pe_sin = tf.concat([pe_sin, pe_cos], -1)
+        
+    return pe_sin
+    
+#
+def att_qkv_layer(inputs, memory, values, mask_m, att_dim, keep_prob=1.0, scope="qkv"):
+    """ batch_major
+        inputs: [B, TQ, DQ]
+        memory: [B, TM, DM]
+        values: [B, TV, DV]  # TM = TV
+    """
+    with tf.variable_scope(scope):
+        d_inputs = dropout(inputs, keep_prob=keep_prob)  # [B, TQ, DQ]
+        d_memory = dropout(memory, keep_prob=keep_prob)
+        #
+        inputs_d = dense(d_inputs, att_dim, use_bias=False, scope="inputs")            
+        memory_d = dense(d_memory, att_dim, use_bias=False, scope="memory")
+        # inputs_d = tf.nn.relu(inputs_d)
+        # memory_d = tf.nn.relu(memory_d)
+        #
+        # [B, TQ, TM]
+        att_mat = tf.matmul(inputs_d, tf.transpose(memory_d, [0, 2, 1])) / (att_dim ** 0.5)
+        # 
+        mask_3d = tf.cast(tf.expand_dims(mask_m, axis=1), tf.float32) # [B, 1, TM]
+        att_masked = tf.add(att_mat, 1e30 * (mask_3d - 1) )  # -inf   # [B, TQ, TM]
+        logits = tf.nn.softmax(att_masked)
+        #
+        d_values = dropout(values, keep_prob=keep_prob)  # [B, TM, DV]
+        values_d = dense(d_values, att_dim, use_bias=False, scope="values")
+        # values_d = tf.nn.relu(values_d)
+        #
+        outputs = tf.matmul(logits, values_d)   # [B, TQ, DV_d]
+    return outputs
+    
+def qk_mat_layer(inputs, memory, att_dim, keep_prob=1.0, scope="qk_mat"):
+    with tf.variable_scope(scope):
+        d_inputs = dropout(inputs, keep_prob=keep_prob)  # [B, TQ, D]
+        d_memory = dropout(memory, keep_prob=keep_prob)
+        #
+        inputs_d = dense(d_inputs, att_dim, use_bias=False, scope="inputs")            
+        memory_d = dense(d_memory, att_dim, use_bias=False, scope="memory")
+        # inputs_d = tf.nn.relu(inputs_d)
+        # memory_d = tf.nn.relu(memory_d)
+        #
+        # [B, TQ, TM]
+        att_mat = tf.matmul(inputs_d, tf.transpose(memory_d, [0, 2, 1])) / (att_dim ** 0.5)
+    return att_mat
+
+def qk_value_pool_layer(qk_mat, values, mask_k, hidden, keep_prob=1.0, scope="qk_pool"):
+    with tf.variable_scope(scope):
+        # 
+        mask_3d = tf.cast(tf.expand_dims(mask_k, axis=1), tf.float32) # [B, 1, TM]
+        att_masked = tf.add(qk_mat, 1e30 * (mask_3d - 1) )  # -inf   # [B, TQ, TM]
+        logits = tf.nn.softmax(att_masked)
+        #
+        d_values = dropout(values, keep_prob=keep_prob)  # [B, TM, DV]
+        values_d = dense(d_values, qk_mat, use_bias=False, scope="values")
+        # values_d = tf.nn.relu(values_d)
+        outputs = tf.matmul(logits, values_d)   # [B, TQ, DV_d]
+    return outputs
 
 #
 def do_mask_padding_elems(x, mask):
@@ -48,69 +128,39 @@ def do_mask_padding_elems(x, mask):
     # (batch, time, units), or (time, batch, units)
     return tf.add(x, 1e30 * tf.cast(mask - 1, dtype=tf.float32) )
 
-def dot_att_layer(query, memory, mask_m_2d, att_dim,
-                  keep_prob=1.0, gating=False, scope="dot_attention"):
-    """ batch_major,
-        query: [B, TQ, DQ]
-        memory: [B, TM, DM]
-        mask_m_2d: [B, TM]
+def att_pool_layer(query, seq, seq_mask, att_dim, keep_prob=1.0, scope="att_pooling"):
+    """ batch_major
+        query: [B, DQ]
+        seq: [B, TM, DM]
+        seq_mask: [B, TM]
     """
     with tf.variable_scope(scope):
-        # TQ = tf.shape(query)[1]
-        with tf.variable_scope("attention"):
-            d_query = tf.nn.dropout(query, keep_prob=keep_prob)  # [B, TQ, D]
-            d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)
-            #
-            inputs_r = tf.nn.relu(dense(d_query, att_dim, use_bias=False, scope="inputs"))
-            memory_r = tf.nn.relu(dense(d_memory, att_dim, use_bias=False, scope="memory"))
-            # [B, TQ, TM]
-            att_mat = tf.matmul(inputs_r, tf.transpose(memory_r, [0, 2, 1])) / (att_dim ** 0.5)
-            # 
-            mask_3d = tf.expand_dims(mask_m_2d, axis=1)  # [B, 1, TM]
-            logits = tf.nn.softmax(do_mask_padding_elems(att_mat, mask_3d)) # [B, TQ, TM]
-            #
-            d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)  # [B, TM, DM]
-            outputs = tf.matmul(logits, memory)   # [B, TQ, DM]
-            #
-            result = tf.concat([query, outputs], axis=2)  # [B, TQ, DQ + DM]
-            
-        if gating:
-            with tf.variable_scope("gate"):
-                dim = result.get_shape().as_list()[-1]
-                d_result = tf.nn.dropout(result, keep_prob=keep_prob)
-                gate = tf.nn.sigmoid(dense(d_result, dim, use_bias=False))
-                result = tf.multiply(result, gate)
-        
-        return result
-    
-def att_pool_layer(seq, query, seq_mask, att_dim,
-                   keep_prob=1.0, is_train=None, scope="att_pooling"):
-    with tf.variable_scope(scope):
-        # batch_major
-        # seq: [B, T, D]
-        # query: [B, DQ]
-        # seq_mask: [B, T]
-        d_seq = tf.nn.dropout(seq, keep_prob=keep_prob)
-        seq_shape = tf.shape(seq)
-        T = seq_shape[1]
-        D = seq_shape[2]
-        with tf.variable_scope("attention"):
-            d_seq = tf.nn.tanh(dense(d_seq, att_dim, scope="att_dense"))
-            #
-            q_tile = tf.tile(tf.expand_dims(query, 1), [1, T, 1])  # [B, T, DQ]
-            att_value = tf.reduce_sum(tf.multiply(d_seq, q_tile), 2)  # [B, T]
-            # mask = tf.tile(tf.expand_dims(seq_mask, axis=1), [1, T, 1])  # [B, T, 1]
-            # att_value = tf.matmul(d_seq, tf.transpose(query, [1, 0])) / (hidden ** 0.5)
-            #
-            logits = tf.nn.softmax(do_mask_padding_elems(att_value, seq_mask))  # [B, T]
-            logits_s = tf.tile(tf.expand_dims(logits, 2), [1, 1, D])  # [B, T, D]
-            vec_pooled = tf.reduce_sum(tf.multiply(logits_s, seq), 1)  #  [B, D]
-        #      
-        return vec_pooled
         #
-        # seq_mask 相当于seq_length一样的作用，因为seq里有padding_token
+        query = tf.expand_dims(query, 1)  # [B, 1, DQ], TQ = 1
         #
-    
+        d_inputs = dropout(query, keep_prob=keep_prob)  # [B, TQ, DQ]
+        d_memory = dropout(seq, keep_prob=keep_prob)    # [B, TM, DM]
+        #
+        inputs_d = dense(d_inputs, att_dim, use_bias=False, scope="inputs")            
+        memory_d = dense(d_memory, att_dim, use_bias=False, scope="memory")
+        # inputs_d = tf.nn.relu(inputs_d)
+        # memory_d = tf.nn.relu(memory_d)
+        #
+        # [B, TQ, TM]        
+        att_mat = tf.matmul(inputs_d, tf.transpose(memory_d, [0, 2, 1])) / (att_dim ** 0.5)
+        # 
+        mask_3d = tf.cast(tf.expand_dims(seq_mask, axis=1), tf.float32) # [B, 1, TM]
+        att_masked = tf.add(att_mat, 1e30 * (mask_3d - 1) )  # -inf   # [B, TQ, TM]
+        logits = tf.nn.softmax(att_masked)
+        #
+        d_values = dropout(seq, keep_prob=keep_prob)  # [B, TM, DV]
+        values_d = dense(d_values, att_dim, use_bias=False, scope="values")
+        # values_d = tf.nn.relu(values_d)
+        #
+        outputs = tf.matmul(logits, values_d)   # [B, TQ, DV_d]
+        outputs = tf.squeeze(outputs, 1)        # [B, DV_d]
+    return outputs
+#
 def rnn_layer(input_sequence, sequence_length, rnn_size,
               keep_prob = 1.0, activation = None,
               concat = True, scope = 'bi-lstm'):
@@ -118,7 +168,8 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     #
     # time_major = False
     #
-    input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    # input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    input_sequence = dropout(input_sequence, keep_prob)
     #
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
     act = activation or tf.nn.tanh
@@ -146,7 +197,39 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
         rnn_output = tf.multiply(tf.add(rnn_output[0], rnn_output[1]), 0.5, name = 'output')
     #
     return rnn_output
-    #        
+    #
+
+def gru_layer(input_sequence, sequence_length, rnn_size,
+              keep_prob = 1.0, activation = None,
+              concat = True, scope = 'bi-gru'):
+    '''build bidirectional gru layer'''
+    #
+    # time_major = False
+    #
+    # input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    input_sequence = dropout(input_sequence, keep_prob)
+    #
+    act = activation or tf.nn.tanh
+    #
+    cell_fw = tf.nn.rnn_cell.GRUCell(rnn_size, activation = act)
+    cell_bw = tf.nn.rnn_cell.GRUCell(rnn_size, activation = act)
+    #
+    # cell_fw = tf.contrib.rnn.DropoutWrapper(cell_fw, input_keep_prob=dropout_rate)
+    # cell_bw = tf.contrib.rnn.DropoutWrapper(cell_bw, input_keep_prob=dropout_rate)
+    #
+    rnn_output, _ = tf.nn.bidirectional_dynamic_rnn(cell_fw, cell_bw, input_sequence,
+                                                    sequence_length = sequence_length,
+                                                    time_major = False,
+                                                    dtype = tf.float32,
+                                                    scope = scope)
+    #
+    if concat:
+        rnn_output = tf.concat(rnn_output, 2, name = 'output')
+    else:
+        rnn_output = tf.multiply(tf.add(rnn_output[0], rnn_output[1]), 0.5, name = 'output')
+    #
+    return rnn_output
+    #     
 
 #
 def gather_and_pad_layer(x, num_items):

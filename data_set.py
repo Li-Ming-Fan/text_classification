@@ -20,24 +20,23 @@ class Dataset():
     
     def __init__(self, list_files = [], vocab = None):
         
-        # vocab
+        # vocab and examples
         self.vocab = vocab
+        self.data_examples = []             # data_examples
         
         # directories for saving results, auto-mk,
         self.dir_vocab = './vocab'
         self.dir_data_examples = './data_examples'
         
+        # vocab-related settings
         self.vocab_filter_cnt = 5
         self.emb_dim = 64
         self.pretrained_emb_file = None
              
-        # train and valid
-        #
-        # data_raw files
+        # data_raw process
         self.list_files = list_files
         self.data_raw = []                  # data_raw
-        self.data_seg = []                  # data_seg
-        self.data_examples = []             # data_examples
+        self.data_seg = []                  # data_seg        
         #
         
     #
@@ -91,7 +90,7 @@ class Dataset():
         print('convert to ids ...')
         self.data_examples = data_utils.convert_data_seg_to_ids(self.vocab, self.data_seg)
         #        
-        print('preparation done.')
+        print('data_examples prepared')
         
     #
     # data_examples, task-independent
@@ -193,8 +192,43 @@ class Dataset():
     
     @staticmethod
     def do_balancing_classes(data_examples, label_posi, num_classes, num_oversamples = None):
-        
+                
+        data_all = [[] for idx in range(num_classes)]
+        for example in data_examples:
+            label = example[label_posi]
+            # print(label)
+            if label >= num_classes:
+                print('label >= num_classes when do_balancing_classes()')
+            #
+            data_all[label].append(example)
+            #
+        #
+        num_list = [len(item) for item in data_all]
+        num_max = max(num_list)
+        #
+        if num_oversamples is None:
+            num_oversamples = [num_max] * num_classes
+        #
+        for idx in range(num_classes):
+            while True:
+                len_data = len(data_all[idx])
+                d = num_oversamples[idx] - len_data
+                if d >= len_data:
+                    data_all[idx].extend(data_all[idx])
+                elif d > 0:
+                    data_all[idx].extend(data_all[idx][0:d])
+                else:
+                    break
+                #
+            #
+            print('oversampled class %d' % idx)
+            #
+        data_examples = []
+        for idx in range(num_classes):
+            data_examples.extend(data_all[idx])
+        #
         return data_examples
+        #
     
     #
     @staticmethod
@@ -280,6 +314,11 @@ if __name__ == '__main__':
     # pretrained_emb_file = '../z_data/wv_64.txt'
     
     #
+    num_classes = 2
+    label_posi = 1
+    #
+    
+    #
     dataset = Dataset(list_files)
     #
     dataset.pretrained_emb_file = pretrained_emb_file
@@ -296,33 +335,68 @@ if __name__ == '__main__':
     print('prepared')
     #
     # test load
-    dataset.load_vocab_tokens_and_emb()
     dataset.load_vocab_tokens()
+    #
+    dataset.load_vocab_tokens_and_emb()    
     dataset.load_data_examples()
-    print('test load')
+    print('loaded')
     #
     
     #
     # split
     data_examples = dataset.data_examples
+    random.shuffle(data_examples)
     #
     data_train, data_test = Dataset.split_train_and_test(data_examples,
                                                          ratio_split = 0.9)
     data_train, data_valid = Dataset.split_train_and_test(data_train,
                                                           ratio_split = 0.9)
     #
-    data_train = Dataset.do_balancing_classes(data_train, 1, 2)
+    print()
+    print('num_train: %d' % len(data_train))
+    print('num_valid: %d' % len(data_valid))
+    print('num_test: %d' % len(data_test))
+    print('num_all: %d' % len(data_examples))
+    print()
     #
-    print('split')
+    c_train = data_utils.do_data_statistics(data_train, label_posi, num_classes)
+    print('num train: ')
+    print(c_train)
+    c_valid = data_utils.do_data_statistics(data_valid, label_posi, num_classes)
+    print('num valid: ')
+    print(c_valid)
+    c_test = data_utils.do_data_statistics(data_test, label_posi, num_classes)
+    print('num test: ')
+    print(c_test)
+    c_all = data_utils.do_data_statistics(data_examples, label_posi, num_classes)
+    print('num all: ')
+    print(c_all)
+    print()
+    
     #
-    file_path = os.path.join(dataset.dir_data_examples, 'examples_train.pkl')
-    data_utils.save_data_to_pkl(data_train, file_path)
+    print('balancing train data ...')
+    # data_train = Dataset.do_balancing_classes(data_train, label_posi, num_classes)
+    random.shuffle(data_train)
+    #
+    c_train = data_utils.do_data_statistics(data_train, label_posi, num_classes)
+    print('num train: ')
+    print(c_train)
+    print()
+    #
+    # dataset.save_data_examples()          # save or NOT
+    #
+    dataset.data_examples = data_train
+    dataset.save_data_examples('data_examples_train.pkl')          # save or NOT
+    #
+    dataset.data_examples = data_valid
+    dataset.save_data_examples('data_examples_valid.pkl')          # save or NOT
+    #
+    dataset.data_examples = data_test
+    dataset.save_data_examples('data_examples_test.pkl')          # save or NOT
+    #
+    print('prepared')
+    print()
     
-    file_path = os.path.join(dataset.dir_data_examples, 'examples_valid.pkl')
-    data_utils.save_data_to_pkl(data_valid, file_path)
-    
-    file_path = os.path.join(dataset.dir_data_examples, 'examples_test.pkl')
-    data_utils.save_data_to_pkl(data_test, file_path)
 
     #
     # from collections import namedtuple
