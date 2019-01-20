@@ -52,7 +52,9 @@ The data-batching module here suits for small dataset.
 
 5, https://github.com/gaussic/text-classification-cnn-rnn
 
-6, https://github.com/bloomberg/cnn-rnf
+6, https://github.com/brightmart/text_classification
+
+7, https://github.com/bloomberg/cnn-rnf
 
 ...
 
