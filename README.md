@@ -1,4 +1,4 @@
-# Text Classification (Sentence level)
+# Text Classification (Plain Sequence)
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
