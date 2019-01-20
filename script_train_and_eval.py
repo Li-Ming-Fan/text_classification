@@ -126,7 +126,8 @@ def do_train_and_valid(vocab, settings, args):
         for batch_idx in range(batch_idx_max):
             #
             # eval
-            if count % eval_period == 0:
+            if count % eval_period == 0:                
+                model.logger.info("epoch: %d" % epoch)
                 model.logger.info("training curr batch, loss, lr: %d, %g, %g" % (count, loss, lr) )
                 #
                 model.save_ckpt(model.model_dir, model.model_name, count)
