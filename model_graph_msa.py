@@ -93,7 +93,8 @@ def build_graph(settings):
             """
 
     with tf.variable_scope("feat"):
-        
+        """ attention-pooling, 注意力加权采提
+        """        
         B = tf.shape(enc_t)[0]
         query = tf.get_variable("query", [settings.att_dim],
                                 initializer = tf.ones_initializer())

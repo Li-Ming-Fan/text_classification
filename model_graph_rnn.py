@@ -34,8 +34,10 @@ def build_graph(config):
     with tf.name_scope("rnn"):
         
         seq_e = rnn_layer(seq_emb, seq_len, 128, keep_prob,
-                          activation = tf.nn.relu, concat = True, scope = 'bi-lstm-1')        
-               
+                          activation = tf.nn.relu, concat = True, scope = 'bi-lstm-1')
+        
+        # attention-pooling, 注意力加权采提
+        #
         B = tf.shape(seq_e)[0]
         query = tf.get_variable("query", [config.att_dim],
                                 initializer = tf.ones_initializer())

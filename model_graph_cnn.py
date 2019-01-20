@@ -36,6 +36,7 @@ def build_graph(settings):
         conv2_3 = tf.layers.conv1d(conv1, 128, 3, name='conv2_3')
         conv2_2 = tf.layers.conv1d(conv1, 128, 2, name='conv2_2')
         
+        # max_pooling, 最大值采提
         feat1 = tf.reduce_max(conv2_5, reduction_indices=[1], name='feat1')
         feat2 = tf.reduce_max(conv2_3, reduction_indices=[1], name='feat2')
         feat3 = tf.reduce_max(conv2_2, reduction_indices=[1], name='feat3')
