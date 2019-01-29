@@ -168,7 +168,7 @@ class ModelWrapper():
             #
             if self.reg_lambda > 0.0:
                 loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars
-                                     if 'bias' not in v.name and 'embeddings' not in v.name])
+                                     if 'bias' not in v.name and 'embedding' not in v.name])
                 loss_reg = tf.multiply(loss_reg, self.reg_lambda)
                 self._loss_tensor = tf.add(self._loss_tensor, loss_reg)
             #
