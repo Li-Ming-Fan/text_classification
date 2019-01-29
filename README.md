@@ -1,19 +1,7 @@
-# Text Classification (Sentence level)
+# Text Classification (Plain Sequence)
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
-
-## Task-independent Model Wrapper
-
-A supervised learning project commonly has the following modules:
-
-* Dataset module (including data-preprocessing, data-batching)
-* Model defining, or graph defining module
-* Training, validation, prediction procedures
-
-The train/valid/pred procedures for supervised learnings are much the same for different tasks, so I tried to implement the model wrapper to be task-independent. Then one can focus on data preprocessing and model construction jobs.
-
-The data-batching module here suits for small dataset. 
 
 ## Models
 
@@ -39,6 +27,19 @@ Requiring package jieba for token-segmentation:
 pip install jieba
 
 
+## Task-independent Model Wrapper
+
+A supervised learning project commonly has the following modules:
+
+* Dataset module (including data-preprocessing, data-batching)
+* Model defining, or graph defining module
+* Training, validation, prediction procedures
+
+The train/valid/pred procedures for supervised learnings are much the same for different tasks, so I tried to implement the model wrapper to be task-independent. Then one can focus on data preprocessing and model construction jobs.
+
+The data-batching module here suits for small dataset. 
+
+
 ## References
 
 1, Convolutional Neural Networks for Sentence Classification ( https://arxiv.org/abs/1408.5882 )
@@ -51,7 +52,9 @@ pip install jieba
 
 5, https://github.com/gaussic/text-classification-cnn-rnn
 
-6, https://github.com/bloomberg/cnn-rnf
+6, https://github.com/brightmart/text_classification
+
+7, https://github.com/bloomberg/cnn-rnf
 
 ...
 
