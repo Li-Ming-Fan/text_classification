@@ -271,7 +271,7 @@ class ModelWrapper():
         with tf.gfile.FastGFile(file_path, mode='wb') as f:
             f.write(constant_graph.SerializeToString())
         #
-        str_info = 'pb-file saved: %s' % file_path
+        str_info = 'pb_file saved: %s' % file_path
         self.logger.info(str_info)
         #
         self.settings.is_train = is_train           #
