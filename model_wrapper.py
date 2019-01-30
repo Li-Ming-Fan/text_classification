@@ -35,11 +35,8 @@ class ModelWrapper():
         """        
         self.settings = settings
         #
-        # super().__init__(settings.is_train)
-        for key in settings.__dict__.keys():
-            # print(key + ': ' + str(self.__dict__[key]) )                   
+        for key in settings.__dict__.keys():                  
             self.__dict__[key] = settings.__dict__[key]
-            # print(key + ': ' + str(self.__dict__[key]) ) 
         # 
         # session info
         self.sess_config = tf.ConfigProto(log_device_placement = settings.log_device)
@@ -80,8 +77,7 @@ class ModelWrapper():
     
     def predict_from_batch(self, x_batch):
         """
-        """
-        # x_batch = data_batcher.convert_data_to_batch(data, vocab, settings)  
+        """ 
         feed_dict = self.feed_data_predict(x_batch)
         outputs = self._sess.run(self._outputs_predict, feed_dict = feed_dict)
         

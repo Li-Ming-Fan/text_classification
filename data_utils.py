@@ -7,10 +7,10 @@ Created on Sat Sep 29 04:11:16 2018
 
 import pickle
 
-import jieba as segmenter
+import jieba as segmentor
 
 # import pkuseg
-# segmenter = pkuseg.pkuseg()
+# segmentor = pkuseg.pkuseg()
 
 """
 lexicon = ['北京大学', '北京天安门']                     # 希望分词时用户词典中的词固定不分开
@@ -55,7 +55,7 @@ def load_from_file_raw(file_raw):
 def clean_and_seg_single_text(text):        
     text = text.strip()
     #
-    seg_list = segmenter.cut(text)
+    seg_list = segmentor.cut(text)
     tokens = list(seg_list)
     #
     #print(text)

@@ -37,23 +37,15 @@ def parse_args():
     return parser.parse_args()
 
 #  
-def do_predict(vocab, settings, data_pkl_basename):    
-    #
-    # model
-    model = ModelWrapper(settings)
-    model.prepare_for_prediction()
-    # model.prepare_for_train_and_valid()
-    # model.assign_dropout_keep_prob(1.0)    
-    #
-    # data
-    dataset = Dataset()
-    dataset.load_data_examples(data_pkl_basename)
-    data_examples = dataset.data_examples
+def do_predict(model, data_examples):    
     #
     batch_size_eval = model.batch_size_eval
     #
-    data_batches = Dataset.do_batching_data(data_examples, batch_size_eval)
+    shuffle_seed = Dataset.generate_shuffle_seed()
+    data_batches = Dataset.do_batching_data(data_examples, batch_size_eval, shuffle_seed)
     data_batches = Dataset.do_standardizing_batches(data_batches, model.settings)
+    #
+    report = []
     #
     count_max = len(data_batches)
     for idx in range(count_max):
@@ -63,6 +55,8 @@ def do_predict(vocab, settings, data_pkl_basename):
         #
         print(result)
         #
+    #
+    return report
     #
     
 #
@@ -89,21 +83,26 @@ if __name__ == '__main__':
     #
     
     # data
+    file_data_train = "./data_examples/data_examples_train.pkl"
+    file_data_valid = "./data_examples/data_examples_valid.pkl"
+    file_data_test = "./data_examples/data_examples_test.pkl"
+    file_data_all = "./data_examples/data_examples_test.pkl"
+    #
     data_tag = args.data
     #
-    pkl_basename = "data_examples_test.pkl"
+    file_data_pkl = file_data_test
     #
     if data_tag == "train":
-        pkl_basename = "data_examples_train.pkl"
+        file_data_pkl = file_data_train
     elif data_tag == "valid":
-        pkl_basename = "data_examples_valid.pkl"
+        file_data_pkl = file_data_valid
     elif data_tag == "test":
-        pkl_basename = "data_examples_test.pkl"
+        file_data_pkl = file_data_test
     elif data_tag == "all":
-        pkl_basename = "data_examples.pkl"
+        file_data_pkl = file_data_all
     else:
         print("NOT supported data_tag: " % data_tag)
-        assert False, "must be train|valid|test|all"
+        assert False, "must be one of [train|valid|test|all]"
     #
         
     #
@@ -123,9 +122,20 @@ if __name__ == '__main__':
     settings.create_or_reset_log_file()
     settings.logger.info('running with args : {}'.format(args))
     settings.logger.info(settings.trans_info_to_dict())
-    
+    #
+    # model
+    model = ModelWrapper(settings)
+    model.prepare_for_prediction()
+    # model.prepare_for_train_and_valid()
+    # model.assign_dropout_keep_prob(1.0)    
+    #
+    # data
+    dataset = Dataset()
+    dataset.load_data_examples(file_data_pkl)
+    data_examples = dataset.data_examples
     #
     # run
-    do_predict(vocab, settings, pkl_basename)
+    report = do_predict(model, data_examples)
+    model.logger.info('prediction results: {}'.format(report))
     #
     

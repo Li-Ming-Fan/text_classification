@@ -94,20 +94,24 @@ class Dataset():
         
     #
     # data_examples, task-independent
-    def save_data_examples(self, file_basename = 'data_examples.pkl'):
+    def save_data_examples(self, file_path = None):
         """
         """
         print('save data_examples ...')
         if not os.path.exists(self.dir_data_examples): os.makedirs(self.dir_data_examples)
+        
+        if file_path is None:
+            file_path = os.path.join(self.dir_data_examples, "data_examples.pkl")            
         #
-        file_path = os.path.join(self.dir_data_examples, file_basename)
         data_utils.save_data_to_pkl(self.data_examples, file_path)
         
-    def load_data_examples(self, file_basename = 'data_examples.pkl'):
+    def load_data_examples(self, file_path = None):
         """
         """
         print('load data_examples ...')
-        file_path = os.path.join(self.dir_data_examples, file_basename)
+        if file_path is None:
+            file_path = os.path.join(self.dir_data_examples, "data_examples.pkl")
+        #
         self.data_examples = data_utils.load_data_from_pkl(file_path)
         
     #
@@ -386,13 +390,13 @@ if __name__ == '__main__':
     # dataset.save_data_examples()          # save or NOT
     #
     dataset.data_examples = data_train
-    dataset.save_data_examples('data_examples_train.pkl')          # save or NOT
+    dataset.save_data_examples('./data_examples/data_examples_train.pkl')          # save or NOT
     #
     dataset.data_examples = data_valid
-    dataset.save_data_examples('data_examples_valid.pkl')          # save or NOT
+    dataset.save_data_examples('./data_examples/data_examples_valid.pkl')          # save or NOT
     #
     dataset.data_examples = data_test
-    dataset.save_data_examples('data_examples_test.pkl')          # save or NOT
+    dataset.save_data_examples('./data_examples/data_examples_test.pkl')          # save or NOT
     #
     print('prepared')
     print()
