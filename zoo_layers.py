@@ -8,6 +8,22 @@ Created on Sat Sep  1 17:14:19 2018
 import tensorflow as tf
 
 #
+def dropout(inputs, keep_prob, feature_stick=False, mode="recurrent"):
+    #
+    if feature_stick is False: return tf.nn.dropout(inputs, keep_prob)
+    #
+    shape = tf.shape(inputs)
+    if mode == "embedding" and len(inputs.get_shape().as_list()) == 2:
+        noise_shape = [shape[0], 1]
+        scale = keep_prob
+        out = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape) * scale
+    elif mode == "recurrent" and len(inputs.get_shape().as_list()) == 3:     
+        noise_shape = [shape[0], 1, shape[-1]]  # batch_major
+        out = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape)
+    else: 
+        out = tf.nn.dropout(inputs, keep_prob, noise_shape=None)
+    return out
+
 def dense(inputs, hidden, use_bias=True, scope="dense"):
     with tf.variable_scope(scope):
         shape = tf.shape(inputs)
@@ -25,22 +41,6 @@ def dense(inputs, hidden, use_bias=True, scope="dense"):
         res = tf.reshape(res, out_shape)
         return res
     
-def dropout(inputs, keep_prob, mode="recurrent"):
-    noise_shape = None
-    scale = 1.0
-    shape = tf.shape(inputs)
-    if mode == "embedding":
-        noise_shape = [shape[0], 1]
-        scale = keep_prob
-        pass
-    if mode == "recurrent" and len(inputs.get_shape().as_list()) == 3:
-        # batch_major
-        noise_shape = [shape[0], 1, shape[-1]]
-        pass
-    #
-    inputs = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape) * scale
-    return inputs
-
 #
 def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
     
@@ -160,6 +160,7 @@ def att_pool_layer(query, seq, seq_mask, att_dim, keep_prob=1.0, scope="att_pool
         outputs = tf.matmul(logits, values_d)   # [B, TQ, DV_d]
         outputs = tf.squeeze(outputs, 1)        # [B, DV_d]
     return outputs
+
 #
 def rnn_layer(input_sequence, sequence_length, rnn_size,
               keep_prob = 1.0, activation = None,

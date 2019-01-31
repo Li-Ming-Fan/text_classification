@@ -9,15 +9,6 @@ import pickle
 
 import jieba as segmentor
 
-# import pkuseg
-# segmentor = pkuseg.pkuseg()
-
-"""
-lexicon = ['北京大学', '北京天安门']                     # 希望分词时用户词典中的词固定不分开
-seg = pkuseg.pkuseg(user_dict=lexicon)                  # 加载模型，给定用户词典
-text = seg.cut('我爱北京天安门')                         # 进行分词
-print(text)
-"""
 
 from vocab import Vocab
 

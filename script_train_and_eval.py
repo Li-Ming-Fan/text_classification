@@ -31,7 +31,7 @@ def parse_args():
     
     model_related = parser.add_argument_group('model related settings')
     model_related.add_argument('--model', type=str,
-                               default = 'cnn', help='model tag')
+                               default = 'rnn', help='model tag')
     
     return parser.parse_args()
     
@@ -128,7 +128,8 @@ if __name__ == '__main__':
         #
         model.assign_dropout_keep_prob(1.0)
         eval_score, loss_aver, metric_val = model_utils.do_eval(model, data_eval)
-        model.logger.info("eval loss_aver, metric: %g, %g" % (loss_aver, metric_val) )
+        model.logger.info("eval finished with loss_aver, metric: %g, %g" % (loss_aver, metric_val) )
+        print("eval finished with loss_aver, metric: %g, %g" % (loss_aver, metric_val) )
         #
     elif run_mode == 'debug':
         # data

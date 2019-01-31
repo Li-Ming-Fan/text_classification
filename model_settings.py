@@ -86,19 +86,7 @@ class ModelSettings(object):
         """
         assert self.vocab is not None, 'vocab is None'
         
-        # assert
-        """
-        if self.is_train == False:
-            assert len(self.inputs_predict_name), 'inputs_predict_name is []'
-            assert len(self.outputs_predict_name), 'outputs_predict_name is []'
-        else:
-            assert self.model_graph is not None, 'model_graph is None'
-            assert len(self.inputs_train_name), 'inputs_train_name is []'
-            assert len(self.outputs_train_name), 'outputs_train_name is []'
-            assert self.loss_name is not None, 'loss_name is None'            
-        if self.use_metric:
-            assert self.metric_name is not None, 'metric_name is None'
-        """            
+        # assert         
         assert self.is_train is not None, 'is_train not assigned'               
         assert self.model_tag is not None, 'model_tag is None'
         
@@ -119,6 +107,7 @@ class ModelSettings(object):
         
         if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
         #
+        # logger
         self.logger = logging.getLogger(self.log_path)  # use log_path as log_name
         self.logger.setLevel(logging.INFO)
         handler = logging.FileHandler(self.log_path)

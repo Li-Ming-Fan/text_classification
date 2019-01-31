@@ -7,9 +7,6 @@ Created on Mon Aug 27 22:31:20 2018
 
 import os
 import numpy as np
-# import json
-# import copy
-# import time
 
 import tensorflow as tf
 from tensorflow.python.framework import graph_util
@@ -26,13 +23,11 @@ This class is meant to be task-agnostic.
 class ModelWrapper():
     
     def __init__(self, settings):
-        """
-        """        
+        #
         self.set_model_settings(settings)
         
     def set_model_settings(self, settings):
-        """
-        """        
+        #
         self.settings = settings
         #
         for key in settings.__dict__.keys():                  
@@ -76,8 +71,7 @@ class ModelWrapper():
         #
     
     def predict_from_batch(self, x_batch):
-        """
-        """ 
+        #
         feed_dict = self.feed_data_predict(x_batch)
         outputs = self._sess.run(self._outputs_predict, feed_dict = feed_dict)
         
@@ -97,16 +91,14 @@ class ModelWrapper():
     
     # one_batch functions
     def run_train_one_batch(self, one_batch):
-        """
-        """
+        #
         feed_dict = self.feed_data_train(one_batch)
         loss, _ = self._sess.run([self._loss_tensor, self._train_op],
                                  feed_dict = feed_dict)
         return loss
         
     def run_eval_one_batch(self, one_batch):
-        """
-        """
+        #
         feed_dict = self.feed_data_train(one_batch)        
         metric = None
         if self.use_metric:         
@@ -118,15 +110,13 @@ class ModelWrapper():
         return results, loss, metric
 
     def run_predict_one_batch(self, one_batch):
-        """
-        """
+        #
         feed_dict = self.feed_data_train(one_batch)
         results = self._sess.run(self._outputs_train, feed_dict = feed_dict)        
         return results
     
     def run_debug_one_batch(self, one_batch):
-        """
-        """
+        #
         feed_dict = self.feed_data_train(one_batch)
         results = self._sess.run(self._debug_tensors, feed_dict = feed_dict)        
         return results
@@ -202,11 +192,6 @@ class ModelWrapper():
             self.logger.info(str_info)
             # print(str_info)
             #
-            # info_dict = self.settings.trans_info_to_dict()
-            # str_info = json.dumps(info_dict, ensure_ascii = False)
-            # self.logger.info(str_info)
-            # print(str_info)
-            #
             self._inputs_train = []
             for item in self.inputs_train_name:
                 tensor = self._graph.get_tensor_by_name(item)
@@ -238,27 +223,23 @@ class ModelWrapper():
         
     #
     def assign_dropout_keep_prob(self, keep_prob):
-        """
-        """        
+        #
         with self._graph.as_default():
             self._sess.run(tf.assign(self._keep_prob, tf.constant(keep_prob, dtype=tf.float32)))
             
     def assign_learning_rate(self, lr):
-        """
-        """        
+        #
         with self._graph.as_default():
             self._sess.run(tf.assign(self._lr, tf.constant(lr, dtype=tf.float32)))
         
     #
     def save_graph_pb_file(self, file_path):
-        """
-        """
+        #
         is_train = self.settings.is_train
         self.settings.is_train = False       #
         #
         model = ModelWrapper(self.settings)
-        model.prepare_for_train_and_valid()        
-        # model.load_ckpt(model.model_dir + '_best')
+        model.prepare_for_train_and_valid()   # loaded here
         model.assign_dropout_keep_prob(1.0)
         #
         constant_graph = graph_util.convert_variables_to_constants(
@@ -274,20 +255,17 @@ class ModelWrapper():
         #
             
     def save_ckpt_best(self, model_dir, model_name, step):
-        """
-        """
+        #
         self._saver_best.save(self._sess, os.path.join(model_dir, model_name),
                               global_step = step)
         
     def save_ckpt(self, model_dir, model_name, step):
-        """
-        """
+        #
         self._saver.save(self._sess, os.path.join(model_dir, model_name),
                          global_step = step)
     
     def load_ckpt(self, dir_ckpt):
-        """
-        """
+        #
         ckpt = tf.train.get_checkpoint_state(dir_ckpt)        
         if ckpt and ckpt.model_checkpoint_path:
             self._saver.restore(self._sess, ckpt.model_checkpoint_path)
@@ -302,8 +280,7 @@ class ModelWrapper():
     
     # graph and sess
     def get_model_graph_and_sess(self):
-        """ for debug
-        """
+        #
         return self._graph, self._sess
         #
             
@@ -314,12 +291,7 @@ if __name__ == '__main__':
     sett.model_tag = 'cnn'
     
     sett.check_settings()
-    
-    #print(dir(sett))    
-    #l = [i for i in dir(sett) if inspect.isbuiltin(getattr(sett, i))]
-    #l = [i for i in dir(sett) if inspect.isfunction(getattr(sett, i))]
-    #l = [i for i in dir(sett) if not callable(getattr(sett, i))]
-    
+        
     print(sett.__dict__.keys())
     print()
     

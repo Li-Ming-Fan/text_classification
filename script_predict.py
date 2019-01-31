@@ -129,12 +129,13 @@ if __name__ == '__main__':
     # model.prepare_for_train_and_valid()
     # model.assign_dropout_keep_prob(1.0)    
     #
+    # run
+    #
     # data
     dataset = Dataset()
     dataset.load_data_examples(file_data_pkl)
     data_examples = dataset.data_examples
     #
-    # run
     report = do_predict(model, data_examples)
     model.logger.info('prediction results: {}'.format(report))
     #

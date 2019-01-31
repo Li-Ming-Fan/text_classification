@@ -7,12 +7,13 @@ import io
 
 class Vocab(object):
     
-    pad_token = '<pad>'
-    unk_token = '<unk>'
-    start_token = '<start>'
-    end_token = '<end>'
+    pad_token = '[pad]'
+    unk_token = '[unk]'
+    start_token = '[start]'
+    end_token = '[end]'
+    mask_token = '[mask]'
     
-    def __init__(self, lower = False, initial_tokens = []):
+    def __init__(self, initial_tokens = [], lower = False):
         """
         """
         self.dict_id2token = {}
@@ -27,6 +28,7 @@ class Vocab(object):
         self.add(self.unk_token , 10000)
         self.add(self.start_token , 10000)
         self.add(self.end_token , 10000)
+        self.add(self.mask_token , 10000)
         
         self.initial_tokens = initial_tokens
         for token in self.initial_tokens:
@@ -99,14 +101,6 @@ class Vocab(object):
         print('num lines: %d' % (idx + 1) )
         print('num tokens after loading: %d' % len(self.dict_id2token))
         #
-        
-    def add_tokens_from_corpus(self, corp):
-        """ load tokens from corpus (list)
-            with each item in the list as a list of tokens 
-        """
-        for item in corp:
-            for word in item:
-                self.add(word)
             
     def filter_tokens_by_cnt(self, min_cnt):
         #
