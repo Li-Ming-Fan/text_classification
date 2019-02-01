@@ -66,6 +66,14 @@ class Vocab(object):
             else:
                 self.dict_token_cnt[token] = cnt
         return idx
+    
+    def add_tokens_from_corpus(self, corp):
+        """ add tokens from corpus (list)
+            with each item in the list as a list of tokens 
+        """
+        for item in corp:
+            for word in item:
+                self.add(word)
                 
     def add_tokens_from_file(self, file_path):
         """ add tokens from file
@@ -101,7 +109,16 @@ class Vocab(object):
         print('num lines: %d' % (idx + 1) )
         print('num tokens after loading: %d' % len(self.dict_id2token))
         #
-            
+        
+    def save_tokens_to_file(self, file_path):
+        """ save tokens to file
+            with one token in one line
+        """
+        with open(file_path, 'w', encoding='utf-8') as fp:
+            for idd in range(self.size()):
+                fp.write(self.dict_id2token[idd] + '\n')
+    
+    #
     def filter_tokens_by_cnt(self, min_cnt):
         #
         #filtered_tokens = [token for token in self.token2id if self.token_cnt[token] >= min_cnt]
@@ -118,15 +135,8 @@ class Vocab(object):
             self.add(token, cnt=0)
         for token in filtered_tokens:
             self.add(token, cnt=0)
-            
-    def save_tokens_to_file(self, file_path):
-        """ save tokens to file
-            with one token in one line
-        """
-        with open(file_path, 'w', encoding='utf-8') as fp:
-            for idd in range(self.size()):
-                fp.write(self.dict_id2token[idd] + '\n')
-
+        
+    #
     def randomly_init_embeddings(self, emb_dim):
         #
         self.emb_dim = emb_dim

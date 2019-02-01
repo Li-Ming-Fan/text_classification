@@ -8,7 +8,7 @@ Created on Sat Sep  1 17:14:19 2018
 import tensorflow as tf
 
 #
-def dropout(inputs, keep_prob, feature_stick=False, mode="recurrent"):
+def dropout(inputs, keep_prob, feature_stick=True, mode="recurrent"):
     #
     if feature_stick is False: return tf.nn.dropout(inputs, keep_prob)
     #
@@ -31,11 +31,11 @@ def dense(inputs, hidden, use_bias=True, scope="dense"):
         dim = shape_list[-1]
         out_shape = [shape[idx] for idx in range(len(shape_list) - 1)] + [hidden]
         flat_inputs = tf.reshape(inputs, [-1, dim])
-        W = tf.get_variable("W", [dim, hidden],
+        W = tf.get_variable("kernel", [dim, hidden],
                             initializer = tf.variance_scaling_initializer())
         res = tf.matmul(flat_inputs, W)
         if use_bias:
-            b = tf.get_variable("b", [hidden],
+            b = tf.get_variable("bias", [hidden],
                                 initializer = tf.constant_initializer(0.))
             res = tf.nn.bias_add(res, b)
         res = tf.reshape(res, out_shape)
