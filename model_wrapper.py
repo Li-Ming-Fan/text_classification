@@ -30,7 +30,7 @@ class ModelWrapper():
         #
         self.settings = settings
         #
-        for key in settings.__dict__.keys():                  
+        for key in settings.__dict__.keys():                 
             self.__dict__[key] = settings.__dict__[key]
         # 
         # session info
@@ -159,7 +159,15 @@ class ModelWrapper():
                 self._loss_tensor = tf.add(self._loss_tensor, loss_reg)
             #
             # Optimizer
-            self._opt = tf.train.AdamOptimizer(learning_rate = self._lr)
+            # optimizer = tf.train.MomentumOptimizer(learning_rate, MOMENTUM, use_nesterov=True)
+            # optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr, epsilon=1e-6)              
+            # optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate, beta1 = MOMENTUM)
+            #
+            self._opt = tf.train.AdamOptimizer(learning_rate = self._lr, beta1 = self.momentum)
+            if self.optimizer_type == 'momentum':
+                self._opt = tf.train.MomentumOptimizer(self._lr, self.momentum, use_nesterov=True)
+            elif self.optimizer_type == 'sgd':
+                self._opt = tf.train.GradientDescentOptimizer(self._lr)
             #
             self._train_op = None
             if self.grad_clip > 0.0:
@@ -239,7 +247,7 @@ class ModelWrapper():
         self.settings.is_train = False       #
         #
         model = ModelWrapper(self.settings)
-        model.prepare_for_train_and_valid()   # loaded here
+        model.prepare_for_train_and_valid()         # loaded here 
         model.assign_dropout_keep_prob(1.0)
         #
         constant_graph = graph_util.convert_variables_to_constants(
@@ -291,7 +299,7 @@ if __name__ == '__main__':
     sett.model_tag = 'cnn'
     
     sett.check_settings()
-        
+    
     print(sett.__dict__.keys())
     print()
     

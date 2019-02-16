@@ -46,6 +46,8 @@ class ModelSettings(object):
         self.grad_clip = 2.0  # 0.0, 5.0, 8.0, 2.0
         self.keep_prob = 0.8  # 1.0, 0.7, 0.5
         
+        self.optimizer_type = 'adam'  # adam, momentum, sgd
+        self.momentum = 0.9
         self.learning_rate_base = 0.001   #
         self.ratio_decay = 0.9
         self.patience_decay = 3000
