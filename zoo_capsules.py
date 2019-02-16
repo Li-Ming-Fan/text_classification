@@ -50,7 +50,8 @@ def capsule_layer(x, x_mask_2d, num_caps, cap_dim, num_iter = 3, keep_prob = 1.0
         #
         # [B, TX, num_caps]
         if caps_initial_state is None:
-            cor_mat = tf.zeros([B, TX, num_caps], dtype = tf.float32, name = "cor_mat")
+            # cor_mat = tf.zeros([B, TX, num_caps], dtype = tf.float32, name = "cor_mat")
+            cor_mat = tf.truncated_normal([B, TX, num_caps], dtype = tf.float32, name = "cor_mat")
         else:
             output_e = tf.expand_dims(caps_initial_state, 1)   # [B, 1, num_caps, cap_dim]
             cor_mat = tf.reduce_sum(output_e * info_base, -1, name = "cor_mat")
