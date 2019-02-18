@@ -17,7 +17,7 @@ import tensorflow as tf
 tf.reset_default_graph()
 
 
-a = tf.get_variable('a', shape = (2,4,5),  initializer = tf.random_normal_initializer() )
+a = tf.get_variable('a', shape = (2,4,5),  initializer = tf.truncated_normal_initializer() )
 b = tf.get_variable('b', shape = (2,3,5), initializer = tf.random_normal_initializer() )
 
 sess = tf.Session()

@@ -31,15 +31,22 @@ def build_graph(settings):
     with tf.variable_scope("feat"):
         
         seq_e = seq_emb
+        
+        B = tf.shape(seq_e)[0]
     
         #
         num_caps = 3
         cap_dim = 64
         num_iter = 3
         
+        caps_initial_state = tf.get_variable('caps_state', shape = (num_caps, cap_dim),
+                                             initializer = tf.truncated_normal_initializer() )
+        caps_initial_state = tf.tile(tf.expand_dims(caps_initial_state, 0), [B, 1, 1])
+        
         mask_t = tf.cast(seq_mask, dtype=tf.float32)    
         cap_d = capsule_layer(seq_e, mask_t, num_caps, cap_dim, num_iter = num_iter,
-                              keep_prob = keep_prob, caps_initial_state = None, scope="capsules")
+                              keep_prob = keep_prob, caps_initial_state = caps_initial_state,
+                              scope="capsules")
         cap_d = tf.nn.relu(cap_d)
         #
         feat = tf.reshape(cap_d, [-1, num_caps * cap_dim])

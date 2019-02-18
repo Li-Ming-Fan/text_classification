@@ -31,7 +31,7 @@ def parse_args():
     
     model_related = parser.add_argument_group('model related settings')
     model_related.add_argument('--model', type=str,
-                               default = 'cnn', help='model tag')
+                               default = 'cap', help='model tag')
     
     return parser.parse_args()
     
