@@ -9,6 +9,7 @@ Experiments on sentence classification. Task-Independent Model Wrapper.
 * CNN-RNF
 * RNN & Attention-Pooling
 * Multi-head Self-Attention
+* Capsule Network
 
 ## Description
 
@@ -50,11 +51,15 @@ The data-batching module here suits for small dataset.
 
 4, Attention Is All You Need ( https://arxiv.org/abs/1706.03762 )
 
-5, https://github.com/gaussic/text-classification-cnn-rnn
+5, Dynamic Routing Between Capsules ( https://arxiv.org/abs/1710.09829 )
 
-6, https://github.com/brightmart/text_classification
+6, Information Aggregation via Dynamic Routing for Sequence Encoding ( https://arxiv.org/abs/1806.01501 )
 
-7, https://github.com/bloomberg/cnn-rnf
+7, https://github.com/gaussic/text-classification-cnn-rnn
+
+8, https://github.com/brightmart/text_classification
+
+9, https://github.com/bloomberg/cnn-rnf
 
 ...
 
