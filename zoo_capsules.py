@@ -73,21 +73,4 @@ def capsule_layer(x, x_mask_2d, num_caps, cap_dim, num_iter = 3, keep_prob = 1.0
         #
         return output
     
-"""
-    with tf.variable_scope("feat"):
-        
-        seq_e = enc_t
     
-        #
-        num_caps = 3
-        cap_dim = 64
-        num_iter = 3
-        
-        mask_t = tf.cast(mask_t, dtype=tf.float32)    
-        cap_d = capsule_layer(seq_e, mask_t, num_caps, cap_dim, num_iter = num_iter,
-                              keep_prob = keep_prob, caps_initial_state = None, scope="capsules")
-        cap_d = tf.nn.relu(cap_d)
-        #
-        feat = tf.reshape(cap_d, [-1, num_caps * cap_dim])
-        #
-"""
