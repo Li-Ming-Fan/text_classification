@@ -40,6 +40,10 @@ def dense(inputs, hidden, use_bias=True, scope="dense"):
             res = tf.nn.bias_add(res, b)
         res = tf.reshape(res, out_shape)
         return res
+        
+def gelu(x):
+    cdf = 0.5 * (1.0 + tf.tanh((0.79788456 * (x + 0.044715 * tf.pow(x, 3)) )))
+    return x * cdf
     
 #
 def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
@@ -47,7 +51,7 @@ def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
     with tf.variable_scope(scope):
         posi = tf.ones_like(input_seq, dtype = tf.float32)
         posi = tf.cumsum(posi, axis = 1) - tf.constant(1.0)
-        posi = tf.tile(tf.expand_dims(posi, 2), [1, 1, d_posi_emb])        
+        posi = tf.tile(tf.expand_dims(posi, 2), [1, 1, d_posi_emb])    
         #               
         dim = tf.ones_like(input_seq, dtype = tf.float32)
         dim = tf.tile(tf.expand_dims(dim, 2), [1, 1, d_posi_emb])
@@ -62,6 +66,34 @@ def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
         pe_sin = tf.concat([pe_sin, pe_cos], -1)
         
     return pe_sin
+    
+#
+def calculate_position_emb_mat(max_seq_len, emb_posi_dim, emb_posi_model,
+                               scope = "embedding_mat_posi_scope"):    
+    with tf.variable_scope(scope):
+        #
+        posi = tf.cast(tf.range(max_seq_len), dtype = tf.float32)  # (T,)
+        posi = tf.tile(tf.expand_dims(posi, 1), [1, emb_posi_dim])
+        #
+        dim = tf.cast(tf.range(emb_posi_dim), dtype = tf.float32)  # (D,)
+        dim = tf.tile(tf.expand_dims(dim, 0), [max_seq_len, 1])
+        #
+        d_model_recip = 1.0/ emb_posi_model
+        pe = posi * 1e-4**(2 * d_model_recip * dim)   # (T, D)
+        #
+        pe_sin = tf.sin(pe)
+        pe_cos = tf.cos(pe)
+        #
+        # pe_all = tf.concat([pe_sin, pe_cos], -1)
+        #
+        pe_sin = tf.expand_dims(pe_sin, -1)  
+        pe_cos = tf.expand_dims(pe_cos, -1)
+        pe_all = tf.concat([pe_sin, pe_cos], -1)  # (T, D, 2)
+        #
+        pe_all = tf.reshape(pe_all, [max_seq_len, -1])
+        pe_all = pe_all[:, 0:emb_posi_dim]
+        
+    return pe_all  # pe_sin
     
 #
 def att_qkv_layer(inputs, memory, values, mask_m, att_dim, keep_prob=1.0, scope="qkv"):

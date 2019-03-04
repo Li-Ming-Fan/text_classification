@@ -12,6 +12,10 @@ class Vocab(object):
     start_token = '[start]'
     end_token = '[end]'
     mask_token = '[mask]'
+    replace_token = '[replace]'
+    vocab_start_idx = 6
+    
+    delimiter_str = '[tokensep]'
     
     def __init__(self, initial_tokens = [], lower = False):
         """
@@ -24,11 +28,12 @@ class Vocab(object):
         self.emb_dim = 64
         self.embeddings = None
 
-        self.add(self.pad_token , 10000)  # make pad_token id: 0
-        self.add(self.unk_token , 10000)
-        self.add(self.start_token , 10000)
-        self.add(self.end_token , 10000)
-        self.add(self.mask_token , 10000)
+        self.add(self.pad_token, 10000)  # make pad_token id: 0
+        self.add(self.unk_token, 10000)
+        self.add(self.start_token, 10000)
+        self.add(self.end_token, 10000)
+        self.add(self.mask_token, 10000)
+        self.add(self.replace_token, 10000)
         
         self.initial_tokens = initial_tokens
         for token in self.initial_tokens:
@@ -66,7 +71,13 @@ class Vocab(object):
             else:
                 self.dict_token_cnt[token] = cnt
         return idx
-    
+        
+    def add_tokens_from_vocab(self, vocab):
+        """ add tokens from another vocab instance
+        """
+        for token in vocab.dict_token_cnt:
+            self.add(token, vocab.dict_token_cnt[token])
+        
     def add_tokens_from_corpus(self, corp):
         """ add tokens from corpus (list)
             with each item in the list as a list of tokens 
@@ -88,10 +99,10 @@ class Vocab(object):
         """ add tokens from lines
             with one token in one line
         """
-        token = ' '        
+        token = ' '      
         for idx, line in enumerate(lines):
             if line.startswith(' '):
-                self.add(' ')
+                self.add(' ', 10000)
                 print('WARNING: blank token')
                 continue
             #            
@@ -104,7 +115,11 @@ class Vocab(object):
             token = str_arr[0]      # .strip()
             # token = line.rstrip('\n')
             # print(token)
-            self.add(token)
+            if len(str_arr) > 1:
+                cnt = int(str_arr[1].strip())
+                self.add(token, cnt)
+            else:
+                self.add(token)
         #
         print('num lines: %d' % (idx + 1) )
         print('num tokens after loading: %d' % len(self.dict_id2token))
@@ -115,8 +130,9 @@ class Vocab(object):
             with one token in one line
         """
         with open(file_path, 'w', encoding='utf-8') as fp:
-            for idd in range(self.size()):
-                fp.write(self.dict_id2token[idd] + '\n')
+            for tid in range(self.size()):
+                token = self.dict_id2token[tid]
+                fp.write(token + ' ' + str(self.dict_token_cnt[token]) + '\n')
     
     #
     def filter_tokens_by_cnt(self, min_cnt):

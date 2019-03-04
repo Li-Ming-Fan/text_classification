@@ -32,7 +32,7 @@ def parse_args():
     
     model_related = parser.add_argument_group('model related settings')
     model_related.add_argument('--model', type=str,
-                               default = 'cnn', help='model tag')
+                               default = 'cap', help='model tag')
     
     return parser.parse_args()
 
@@ -137,6 +137,7 @@ if __name__ == '__main__':
     data_examples = dataset.data_examples
     #
     report = do_predict(model, data_examples)
-    model.logger.info('prediction results: {}'.format(report))
+    settings.logger.info('prediction results: {}'.format(report))
+    settings.close_logger()
     #
     

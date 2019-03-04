@@ -141,6 +141,8 @@ if __name__ == '__main__':
         #
     else:
         print('NOT supported mode. supported modes: [train|eval|debug]')
-    # 
+    #
+    settings.close_logger()
+    #
     
     
