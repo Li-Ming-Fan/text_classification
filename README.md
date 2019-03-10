@@ -2,6 +2,8 @@
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
+Single GPU.
+
 
 ## Models
 
