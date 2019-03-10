@@ -2,7 +2,7 @@
 
 Experiments on sentence classification. Task-Independent Model Wrapper. 
 
-Single GPU.
+Single GPU or Multi GPU.
 
 
 ## Models

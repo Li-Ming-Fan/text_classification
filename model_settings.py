@@ -9,13 +9,13 @@ import os
 import time
 import logging
 
-
 class ModelSettings(object):
     def __init__(self, vocab = None, is_train = None):
         
         # model graph
         self.model_tag = None
-        self.model_graph = None        
+        self.model_graph = None
+        self.vs_str_multi_gpu = "vs_multi_gpu"
         #
         
         # data macro     
@@ -32,8 +32,10 @@ class ModelSettings(object):
         self.emb_tune = 0  # 1 for tune, 0 for not
         
         # train
+        self.gpu_available = "0"
         self.gpu_mem_growth = True
         self.log_device = False
+        self.soft_placement = True
         
         self.with_bucket = False
         self.is_train = is_train
@@ -43,7 +45,7 @@ class ModelSettings(object):
         self.batch_size_eval = 32 
         
         self.reg_lambda = 0.0001  # 0.0, 0.0001
-        self.grad_clip = 2.0  # 0.0, 5.0, 8.0, 2.0
+        self.grad_clip = 5.0  # 0.0, 5.0, 8.0, 2.0
         self.keep_prob = 0.8  # 1.0, 0.7, 0.5
         
         self.optimizer_type = 'adam'  # adam, momentum, sgd
@@ -57,21 +59,21 @@ class ModelSettings(object):
         self.valid_period_batch = 100
         #
         
-        # inputs/outputs        
-        self.inputs_train_name = ['input_x:0', 'input_y:0']
-        self.outputs_train_name = ['score/logits:0']
-        
+        # inputs/outputs - predict
         self.inputs_predict_name = ['input_x:0']     
-        self.outputs_predict_name = ['score/logits:0']
+        self.outputs_predict_name = ['vs_multi_gpu/score/logits:0']
+
+        self.pb_outputs_name = ['vs_multi_gpu/score/logits']
         
-        self.pb_outputs_name = ['score/logits']
+        # inputs/outputs - train
         self.is_train = is_train
-        #
-        self.loss_name = 'loss/loss:0'
-        self.metric_name = 'accuracy/metric:0'
+        self.inputs_train_name = ['input_x:0', 'input_y:0']
+
+        self.loss_name = 'vs_multi_gpu/loss/loss:0'
+        self.metric_name = 'vs_multi_gpu/accuracy/metric:0'
         self.use_metric = True
-        #
-        self.debug_tensors_name = ['score/logits:0']
+        
+        self.debug_tensors_name = ['vs_multi_gpu/score/logits:0']
         #
        
         #
@@ -92,6 +94,9 @@ class ModelSettings(object):
         # assert         
         assert self.is_train is not None, 'is_train not assigned'               
         assert self.model_tag is not None, 'model_tag is None'
+        
+        # gpu
+        self.num_gpu = len(self.gpu_available.split(","))
         
         # directories
         if self.model_dir is None:

@@ -57,69 +57,102 @@ def cnn_rnf_layer(seq, seq_len, R, rnn_size, padding='valid', scope='cnn_rnf'):
     h = tf.reshape(last_state.h, [-1, U, rnn_size])
     
     return h
-
-#
-def build_graph(settings):
-
-    input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
-    input_y = tf.placeholder(tf.int64, [None], name='input_y')
     
-    keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32, trainable=False)
-    #
+#
 
-    with tf.device('/cpu:0'):
-        emb_mat = tf.get_variable('embedding',
-                                  [settings.vocab.size(), settings.vocab.emb_dim],
-                                  initializer=tf.constant_initializer(settings.vocab.embeddings),
-                                  trainable = settings.emb_tune)
-        seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
+class ModelGraph():
+    
+    @staticmethod
+    def build_placeholder(settings):
         
-        seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
-        seq_len = tf.reduce_sum(seq_mask, 1)
+        input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
+        input_y = tf.placeholder(tf.int64, [None], name='input_y')
+        
+        #        
+        print(input_x)
+        print(input_y)
+        #
+        input_tensors = (input_x, )
+        label_tensors = (input_y, )
+        #
+        return input_tensors, label_tensors
+    
+    @staticmethod
+    def build_inference(settings, input_tensors):
+        
+        input_x = input_tensors[0]
 
-    with tf.name_scope("cnn"):
         #
-        conv1_5 = tf.layers.conv1d(seq_emb, 128, 5, padding='same', name='conv1_5')
-        conv1_3 = tf.layers.conv1d(seq_emb, 128, 3, padding='same', name='conv1_3')
-        conv1_2 = tf.layers.conv1d(seq_emb, 128, 2, padding='same', name='conv1_2')
-        
-        feat1 = tf.reduce_max(conv1_5, reduction_indices=[1], name='feat1')
-        feat2 = tf.reduce_max(conv1_3, reduction_indices=[1], name='feat2')
-        feat3 = tf.reduce_max(conv1_2, reduction_indices=[1], name='feat3')
-        
+        keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32, trainable=False)
+        #   
+        with tf.device('/cpu:0'):
+            emb_mat = tf.get_variable('embedding',
+                                      [settings.vocab.size(), settings.vocab.emb_dim],
+                                      initializer=tf.constant_initializer(settings.vocab.embeddings),
+                                      trainable = settings.emb_tune)
+            seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
+            
+            seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
+            seq_len = tf.reduce_sum(seq_mask, 1)
+    
+        with tf.name_scope("cnn"):
+            #
+            conv1_5 = tf.layers.conv1d(seq_emb, 128, 5, padding='same', name='conv1_5')
+            conv1_3 = tf.layers.conv1d(seq_emb, 128, 3, padding='same', name='conv1_3')
+            conv1_2 = tf.layers.conv1d(seq_emb, 128, 2, padding='same', name='conv1_2')
+            
+            feat1 = tf.reduce_max(conv1_5, reduction_indices=[1], name='feat1')
+            feat2 = tf.reduce_max(conv1_3, reduction_indices=[1], name='feat2')
+            feat3 = tf.reduce_max(conv1_2, reduction_indices=[1], name='feat3')
+            
+            #
+            crnf_5 = cnn_rnf_layer(seq_emb, seq_len, 5, 128, padding='valid', scope='cnn_rnf')
+            feat_r = tf.reduce_max(crnf_5, 1)
+            
+            feat = tf.concat([feat1, feat2, feat3, feat_r], 1)
+    
+        with tf.name_scope("score"):
+            #
+            fc = tf.nn.dropout(feat, keep_prob)
+            fc = tf.layers.dense(fc, 128, name='fc1')            
+            fc = tf.nn.relu(fc)
+            
+            fc = tf.nn.dropout(fc, keep_prob)
+            logits = tf.layers.dense(fc, settings.num_classes, name='fc2')
+            
+            normed_logits = tf.nn.softmax(logits, name='logits')
+            
         #
-        crnf_5 = cnn_rnf_layer(seq_emb, seq_len, 5, 128, padding='valid', scope='cnn_rnf')
-        feat_r = tf.reduce_max(crnf_5, 1)
-        
-        feat = tf.concat([feat1, feat2, feat3, feat_r], 1)
-
-    with tf.name_scope("score"):
+        print(normed_logits)
         #
-        fc = tf.nn.dropout(feat, keep_prob)
-        fc = tf.layers.dense(fc, 128, name='fc1')            
-        fc = tf.nn.relu(fc)
+        output_tensors = normed_logits, logits
+        #   
+        return output_tensors
+    
+    @staticmethod
+    def build_loss_and_metric(settings, output_tensors, label_tensors):
         
-        fc = tf.nn.dropout(fc, keep_prob)
-        logits = tf.layers.dense(fc, settings.num_classes, name='fc2')
+        normed_logits, logits = output_tensors
+        input_y = label_tensors[0]
         
-        normed_logits = tf.nn.softmax(logits, name='logits')          
+        
         y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
         
-    with tf.name_scope("loss"):
-        #
-        cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits,
-                                                                       labels = input_y)
-        loss = tf.reduce_mean(cross_entropy, name = 'loss')
-
-    with tf.name_scope("accuracy"):
-        #
-        correct_pred = tf.equal(input_y, y_pred_cls)
-        acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name = 'metric')
+        with tf.name_scope("loss"):
+            #
+            cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits,
+                                                                           labels = input_y)
+            loss = tf.reduce_mean(cross_entropy, name = 'loss')
     
-    #
-    print(normed_logits)
-    print(acc)
-    print(loss)
-    print()
-    #
-
+        with tf.name_scope("accuracy"):
+            #
+            correct_pred = tf.equal(input_y, y_pred_cls)
+            acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name = 'metric')
+            
+        #
+        print(loss)
+        print(acc)
+        #
+        return loss, acc
+        #
+        

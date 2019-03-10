@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--mode', choices=['train', 'eval', 'debug'],
                         default = 'train', help = 'run mode')
     #
-    parser.add_argument('--gpu', type=str, default = '0',
+    parser.add_argument('--gpu', type=str, default = '0,1',
                         help = 'specify gpu device')
     parser.add_argument('--note', type=str, default = 'note_something',
                         help = 'make some useful notes')
@@ -31,7 +31,7 @@ def parse_args():
     
     model_related = parser.add_argument_group('model related settings')
     model_related.add_argument('--model', type=str,
-                               default = 'cap', help='model tag')
+                               default = 'rnn', help='model tag')
     
     return parser.parse_args()
     
@@ -47,15 +47,15 @@ if __name__ == '__main__':
     model_tag = args.model
     #
     if model_tag.startswith('cnn'):
-        from model_graph_cnn import build_graph
+        from model_graph_cnn import ModelGraph
     elif model_tag.startswith('rnn'):
-        from model_graph_rnn import build_graph
+        from model_graph_rnn import ModelGraph
     elif model_tag.startswith('rnf'):
-        from model_graph_rnf import build_graph
+        from model_graph_rnf import ModelGraph
     elif model_tag.startswith('msa'):
-        from model_graph_msa import build_graph
+        from model_graph_msa import ModelGraph
     elif model_tag.startswith('cap'):
-        from model_graph_cap import build_graph
+        from model_graph_cap import ModelGraph
     #
     
     # data
@@ -89,9 +89,10 @@ if __name__ == '__main__':
     #
     settings = ModelSettings(vocab)
     settings.model_tag = model_tag
-    settings.model_graph = build_graph
+    settings.model_graph = ModelGraph
     #
     settings.is_train = True
+    settings.gpu_available = args.gpu
     #
     settings.check_settings()
     #

@@ -71,15 +71,15 @@ if __name__ == '__main__':
     model_tag = args.model    
     #
     if model_tag.startswith('cnn'):
-        from model_graph_cnn import build_graph
+        from model_graph_cnn import ModelGraph
     elif model_tag.startswith('rnn'):
-        from model_graph_rnn import build_graph
+        from model_graph_rnn import ModelGraph
     elif model_tag.startswith('rnf'):
-        from model_graph_rnf import build_graph
+        from model_graph_rnf import ModelGraph
     elif model_tag.startswith('msa'):
-        from model_graph_msa import build_graph
+        from model_graph_msa import ModelGraph
     elif model_tag.startswith('cap'):
-        from model_graph_cap import build_graph
+        from model_graph_cap import ModelGraph
     #
     
     # data
@@ -113,9 +113,10 @@ if __name__ == '__main__':
     #
     settings = ModelSettings(vocab)
     settings.model_tag = model_tag
-    settings.model_graph = build_graph
+    settings.model_graph = ModelGraph
     #
     settings.is_train = False
+    settings.gpu_available = args.gpu
     #
     settings.check_settings()
     #

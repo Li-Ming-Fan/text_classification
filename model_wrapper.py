@@ -34,7 +34,8 @@ class ModelWrapper():
             self.__dict__[key] = settings.__dict__[key]
         # 
         # session info
-        self.sess_config = tf.ConfigProto(log_device_placement = settings.log_device)
+        self.sess_config = tf.ConfigProto(log_device_placement = settings.log_device,
+                                          allow_soft_placement = settings.soft_placement)
         self.sess_config.gpu_options.allow_growth = settings.gpu_mem_growth
         
     
@@ -102,20 +103,16 @@ class ModelWrapper():
         feed_dict = self.feed_data_train(one_batch)        
         metric = None
         if self.use_metric:         
-            results, loss, metric = self._sess.run(self._outputs_eval,
-                                                   feed_dict = feed_dict)
+            *results, loss, metric = self._sess.run(self._outputs_eval,
+                                                    feed_dict = feed_dict)
         else:
-            results, loss = self._sess.run(self._outputs_eval,
-                                           feed_dict = feed_dict)         
+            *results, loss = self._sess.run(self._outputs_eval,
+                                            feed_dict = feed_dict)         
         return results, loss, metric
-
-    def run_predict_one_batch(self, one_batch):
-        #
-        feed_dict = self.feed_data_train(one_batch)
-        results = self._sess.run(self._outputs_train, feed_dict = feed_dict)        
-        return results
-    
+        
     def run_debug_one_batch(self, one_batch):
+        #
+        assert self.num_gpu == 1, "debug mode can only be run with single gpu"
         #
         feed_dict = self.feed_data_train(one_batch)
         results = self._sess.run(self._debug_tensors, feed_dict = feed_dict)        
@@ -123,41 +120,24 @@ class ModelWrapper():
 
     #
     def prepare_for_train_and_valid(self, dir_ckpt = None):
+        #
+        if self.num_gpu == 1:
+            self.prepare_for_train_and_valid_single_gpu(dir_ckpt)
+        else:
+            self.prepare_for_train_and_valid_multi_gpu(dir_ckpt)
+        #
+    
+    #
+    def prepare_for_train_and_valid_single_gpu(self, dir_ckpt = None):
 
         # graph
         self._graph = tf.Graph()
         with self._graph.as_default():
             #
-            # model
-            self.model_graph(self.settings)
-            #
-            # debug tensors
-            self._debug_tensors = []
-            for name in self.debug_tensors_name:
-                tensor = self._graph.get_tensor_by_name(name)
-                self._debug_tensors.append(tensor)
-            #
-            # keep_prob
-            self._keep_prob = self._graph.get_tensor_by_name("keep_prob:0")
-            #
-            # all trainable vars
-            self.trainable_vars = tf.trainable_variables()
-            # print(self.trainable_vars)
-            #            
             self._global_step = tf.get_variable("global_step", shape=[], dtype=tf.int32,
                                            initializer=tf.constant_initializer(0), trainable=False)
             self._lr = tf.get_variable("lr", shape=[], dtype=tf.float32, trainable=False)
-            #
-            if self.use_metric:
-                self._metric_tensor = self._graph.get_tensor_by_name(self.metric_name)
-            self._loss_tensor = self._graph.get_tensor_by_name(self.loss_name)
-            #
-            if self.reg_lambda > 0.0:
-                loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars
-                                     if 'bias' not in v.name and 'embedding' not in v.name])
-                loss_reg = tf.multiply(loss_reg, self.reg_lambda)
-                self._loss_tensor = tf.add(self._loss_tensor, loss_reg)
-            #
+            #            
             # Optimizer
             # optimizer = tf.train.MomentumOptimizer(learning_rate, MOMENTUM, use_nesterov=True)
             # optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr, epsilon=1e-6)              
@@ -169,6 +149,34 @@ class ModelWrapper():
             elif self.optimizer_type == 'sgd':
                 self._opt = tf.train.GradientDescentOptimizer(self._lr)
             #
+            # model
+            input_tensors, label_tensors = self.model_graph.build_placeholder(self.settings)
+            #
+            vs_str = self.vs_str_multi_gpu
+            vs_prefix = vs_str + "/"
+            with tf.variable_scope(vs_str):
+                output_tensors = self.model_graph.build_inference(self.settings, input_tensors)
+                loss, metric = self.model_graph.build_loss_and_metric(self.settings, output_tensors, label_tensors)
+            #
+            # all trainable vars
+            self.trainable_vars = tf.trainable_variables()
+            # print(self.trainable_vars)
+            #
+            self._keep_prob = self._graph.get_tensor_by_name(vs_prefix + "keep_prob:0")
+            #
+            # metric and loss
+            if self.use_metric:
+                self._metric_tensor = metric # self._graph.get_tensor_by_name(self.metric_name)
+            #
+            self._loss_tensor = loss # self._graph.get_tensor_by_name(self.loss_name)
+            #
+            if self.reg_lambda > 0.0:
+                loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars
+                                     if 'bias' not in v.name and 'embedding' not in v.name])
+                loss_reg = tf.multiply(loss_reg, self.reg_lambda)
+                self._loss_tensor = tf.add(self._loss_tensor, loss_reg)
+            #
+            # train_op
             self._train_op = None
             if self.grad_clip > 0.0:
                 grads = self._opt.compute_gradients(self._loss_tensor)
@@ -178,8 +186,7 @@ class ModelWrapper():
                                                            global_step = self._global_step)
             else:
                 self._train_op = self._opt.minimize(self._loss_tensor)
-                    
-            #         
+            #                 
             # save info
             self._saver = tf.train.Saver()
             self._saver_best = tf.train.Saver()
@@ -200,29 +207,218 @@ class ModelWrapper():
             self.logger.info(str_info)
             # print(str_info)
             #
+            
+            # outputs train
+            self._outputs_train = output_tensors
+            #
+            # outputs eval
+            self._outputs_eval = []
+            for item in self._outputs_train:
+                self._outputs_eval.append(item)
+            self._outputs_eval.append(self._loss_tensor)
+            #
+            if self.use_metric:
+                self._outputs_eval.append(self._metric_tensor)
+            #
+            # train inputs
             self._inputs_train = []
             for item in self.inputs_train_name:
                 tensor = self._graph.get_tensor_by_name(item)
                 self._inputs_train.append(tensor)
-            #
-            self._outputs_train = []
-            for item in self.outputs_train_name:
-                tensor = self._graph.get_tensor_by_name(item)
-                self._outputs_train.append(tensor)
-            #            
+            #          
             self._inputs_train_num = len(self._inputs_train)
             #
-            # for eval
-            self._outputs_predict = []
-            for item in self.outputs_predict_name:
-                tensor = self._graph.get_tensor_by_name(item)
-                self._outputs_predict.append(tensor)
+            # debug tensors
+            self._debug_tensors = []
+            for name in self.debug_tensors_name:
+                tensor = self._graph.get_tensor_by_name(name)
+                self._debug_tensors.append(tensor)
             #
+
+        #
+        # load
+        if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
+        self.load_ckpt(dir_ckpt)
+        #
+        
+    #
+    @staticmethod
+    def sum_up_gradients(list_grad_bundles):
+        """ list_grad_bundles: [ [(g1,v1), (g2, v2), ...],
+                                 [(g1,v1), (g2, v2), ...], ...,
+                                 [(g1,v1), (g2, v2), ...] ]
+            zip(*list_grad_bundles): [ ... ]
+        """
+        summed_grads = []
+        for grads_per_var in zip(*list_grad_bundles):
+            grads = []
+            for g, _ in grads_per_var:
+                expanded_g = tf.expand_dims(g, 0)
+                grads.append(expanded_g)
+            #
+            grads_concat = tf.concat(grads, 0)
+            grads_sum = tf.reduce_sum(grads_concat, 0)
+            grad_and_var = (grads_sum, grads_per_var[0][1])
+            summed_grads.append(grad_and_var)
+        #
+        return summed_grads
+    
+    #
+    def prepare_for_train_and_valid_multi_gpu(self, dir_ckpt = None):
+        
+        num_gpu = self.num_gpu
+
+        # graph
+        self._graph = tf.Graph()
+        with self._graph.as_default():
+            #
+            self._global_step = tf.get_variable("global_step", shape=[], dtype=tf.int32,
+                                           initializer=tf.constant_initializer(0), trainable=False)
+            self._lr = tf.get_variable("lr", shape=[], dtype=tf.float32, trainable=False)
+            #  
+            # Optimizer
+            # optimizer = tf.train.MomentumOptimizer(learning_rate, MOMENTUM, use_nesterov=True)
+            # optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr, epsilon=1e-6)              
+            # optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate, beta1 = MOMENTUM)
+            #
+            self._opt = tf.train.AdamOptimizer(learning_rate = self._lr, beta1 = self.momentum)
+            if self.optimizer_type == 'momentum':
+                self._opt = tf.train.MomentumOptimizer(self._lr, self.momentum, use_nesterov=True)
+            elif self.optimizer_type == 'sgd':
+                self._opt = tf.train.GradientDescentOptimizer(self._lr)            
+            #
+            # model, placeholder
+            input_tensors, label_tensors = self.model_graph.build_placeholder(self.settings)
+            #
+            # split among gpu
+            inputs = []
+            labels = []
+            for idx in range(len(input_tensors)):
+                in_split = tf.split(input_tensors[idx], num_gpu)
+                lb_split = tf.split(label_tensors[idx], num_gpu)
+                inputs.append(in_split)
+                labels.append(lb_split)
+            #
+            inputs_split = list(zip(*inputs))
+            labels_split = list(zip(*labels))
+            #
+            # model, inference, loss
+            outputs_list = []
+            loss_list = []
+            metric_list = []
+            grads_bundles = []
+            #
+            vs_str = self.vs_str_multi_gpu
+            vs_prefix = vs_str + "/"
+            with tf.variable_scope(vs_str):
+                for gid in range(num_gpu):
+                    with tf.device("/gpu:%d" % gid), tf.name_scope("bundle_%d" % gid):
+                        #
+                        output_tensors = self.model_graph.build_inference(self.settings,
+                                                                          inputs_split[gid])
+                        loss, metric = self.model_graph.build_loss_and_metric(self.settings,
+                                                                              output_tensors,
+                                                                              labels_split[gid])
+                        #
+                        tf.get_variable_scope().reuse_variables()
+                        #
+                        grads = self._opt.compute_gradients(loss)
+                        grads_bundles.append(grads)
+                        #
+                        outputs_list.append(output_tensors)
+                        loss_list.append(loss)
+                        metric_list.append(metric)
+                        #
+            #
+            # all trainable vars
+            self.trainable_vars = tf.trainable_variables()
+            # print(self.trainable_vars)
+            #
+            self._keep_prob = self._graph.get_tensor_by_name(vs_prefix + "keep_prob:0")
+            #
+            # regularization
+            if self.reg_lambda > 0.0:
+                loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars
+                                     if 'bias' not in v.name and 'embedding' not in v.name])
+                loss_reg = tf.multiply(loss_reg, self.reg_lambda)
+                grads_reg = self._opt.compute_gradients(loss_reg)
+                #
+                grads_reg_clear = []
+                for g, v in grads_reg:
+                    if g is None: g = tf.zeros_like(v)
+                    grads_reg_clear.append( (g,v) )
+                    #
+                #
+                grads_bundles.append(grads_reg_clear)
+                #
+            #            
+            # grad sum
+            grads_summed = ModelWrapper.sum_up_gradients(grads_bundles)
+            #            
+            # grad clip
+            if self.grad_clip > 0.0:
+                gradients, variables = zip(*grads_summed)
+                grads, _ = tf.clip_by_global_norm(gradients, self.grad_clip)
+                grads_summed = zip(grads, variables)
+            #
+            # train_op
+            self._train_op = self._opt.apply_gradients(grads_summed,
+                                                       global_step = self._global_step)
+            #               
+            # save info
+            self._saver = tf.train.Saver()
+            self._saver_best = tf.train.Saver()
+            
+            # sess
+            self._sess = tf.Session(graph=self._graph, config = self.sess_config)
+
+            # initialize the model
+            self._sess.run(tf.global_variables_initializer())
+            self.assign_dropout_keep_prob(self.keep_prob)
+            self.assign_learning_rate(self.learning_rate_base)
+            
+            # params count
+            self.param_num = sum([np.prod(self._sess.run(tf.shape(v)))
+                                  for v in self.trainable_vars])
+            #
+            str_info = 'Graph built, there are %d parameters in the model' % self.param_num
+            self.logger.info(str_info)
+            # print(str_info)
+            #
+            
+            #
+            # loss
+            self._loss_tensor = tf.add_n(loss_list)
+            #
+            # metric
             if self.use_metric:
-                self._outputs_eval = self._outputs_predict + [self._loss_tensor,
-                                                              self._metric_tensor]
+                self._metric_tensor = tf.add_n(metric_list) / num_gpu
+            #
+            # output
+            outputs_list_z = zip(*outputs_list)
+            outputs_list_c = []
+            for item in outputs_list_z:
+                item_c = tf.concat(item, 0)
+                outputs_list_c.append(item_c)
+            #
+            self._outputs_train = outputs_list_c
+            #
+            # outputs eval
+            if self.use_metric:
+                self._outputs_eval = self._outputs_train + [self._loss_tensor,
+                                                            self._metric_tensor]
             else:
-                self._outputs_eval = self._outputs_predict + [self._loss_tensor]
+                self._outputs_eval = self._outputs_train + [self._loss_tensor]
+            #
+            # train inputs
+            self._inputs_train = []
+            for item in self.inputs_train_name:
+                tensor = self._graph.get_tensor_by_name(item)
+                self._inputs_train.append(tensor)
+            #          
+            self._inputs_train_num = len(self._inputs_train)
+            #
+            
         #
         # load
         if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
@@ -247,7 +443,7 @@ class ModelWrapper():
         self.settings.is_train = False       #
         #
         model = ModelWrapper(self.settings)
-        model.prepare_for_train_and_valid()         # loaded here 
+        model.prepare_for_train_and_valid_single_gpu()         # loaded here 
         model.assign_dropout_keep_prob(1.0)
         #
         constant_graph = graph_util.convert_variables_to_constants(
