@@ -53,7 +53,7 @@ class ModelSettings(object):
         self.learning_rate_base = 0.001   #
         self.ratio_decay = 0.9
         self.patience_decay = 3000
-        self.learning_rate_minimum = 0.000001
+        self.learning_rate_minimum = 0.0001
         
         self.save_period_batch = 100
         self.valid_period_batch = 100
@@ -68,9 +68,6 @@ class ModelSettings(object):
         # inputs/outputs - train
         self.is_train = is_train
         self.inputs_train_name = ['input_x:0', 'input_y:0']
-
-        self.loss_name = 'vs_multi_gpu/loss/loss:0'
-        self.metric_name = 'vs_multi_gpu/accuracy/metric:0'
         self.use_metric = True
         
         self.debug_tensors_name = ['vs_multi_gpu/score/logits:0']

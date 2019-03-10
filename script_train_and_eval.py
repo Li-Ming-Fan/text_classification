@@ -20,7 +20,7 @@ def parse_args():
     parser.add_argument('--mode', choices=['train', 'eval', 'debug'],
                         default = 'train', help = 'run mode')
     #
-    parser.add_argument('--gpu', type=str, default = '0,1',
+    parser.add_argument('--gpu', type=str, default = '0',
                         help = 'specify gpu device')
     parser.add_argument('--note', type=str, default = 'note_something',
                         help = 'make some useful notes')
@@ -31,7 +31,7 @@ def parse_args():
     
     model_related = parser.add_argument_group('model related settings')
     model_related.add_argument('--model', type=str,
-                               default = 'rnn', help='model tag')
+                               default = 'cap', help='model tag')
     
     return parser.parse_args()
     
