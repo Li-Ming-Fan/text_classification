@@ -11,9 +11,6 @@ import numpy as np
 import tensorflow as tf
 from tensorflow.python.framework import graph_util
 
-from model_settings import ModelSettings
-
-
 """
 This class is meant to be task-agnostic.
 
@@ -489,6 +486,8 @@ class ModelWrapper():
         #
             
 if __name__ == '__main__':
+    
+    from model_settings import ModelSettings
     
     sett = ModelSettings('vocab_placeholder', False)
     
