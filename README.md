@@ -23,6 +23,14 @@ To run this repo:
 
 3, python script_predict.py --model=cnn
 
+
+</br>
+
+
+To specifiy gpu to be used:
+
+2', python script_train_and_eval.py --model=cnn --gpu=0    # using gpu:0; "--gpu=0,1" for using gpu:0, and gpu:1
+
 </br>
 
 Requiring package jieba for token-segmentation:
