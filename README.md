@@ -30,6 +30,7 @@ To run this repo:
 To specifiy gpu to be used:
 
 2', python script_train_and_eval.py --model=cnn --gpu=0
+
 2'', python script_train_and_eval.py --model=cnn --gpu=0,1
 
 
