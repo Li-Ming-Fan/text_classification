@@ -197,12 +197,18 @@ class ModelWrapper():
             self.assign_learning_rate(self.learning_rate_base)
             
             # params count
-            self.param_num = sum([np.prod(self._sess.run(tf.shape(v)))
-                                  for v in self.trainable_vars])
-            #
-            str_info = 'Graph built, there are %d parameters in the model' % self.param_num
+            self.num_vars = len(self.trainable_vars)
+            str_info = 'Graph built, there are %d variables in the model' % self.num_vars
             self.logger.info(str_info)
-            # print(str_info)
+            print(str_info)
+            #
+            tf_shapes = [tf.shape(v) for v in self.trainable_vars]
+            shapes_v = self._sess.run(tf_shapes)
+            self.param_num = sum([np.prod(item) for item in shapes_v])
+            #
+            str_info = 'There are %d parameters in the model' % self.param_num
+            self.logger.info(str_info)
+            print(str_info)
             #
             
             # outputs train
@@ -375,12 +381,18 @@ class ModelWrapper():
             self.assign_learning_rate(self.learning_rate_base)
             
             # params count
-            self.param_num = sum([np.prod(self._sess.run(tf.shape(v)))
-                                  for v in self.trainable_vars])
-            #
-            str_info = 'Graph built, there are %d parameters in the model' % self.param_num
+            self.num_vars = len(self.trainable_vars)
+            str_info = 'Graph built, there are %d variables in the model' % self.num_vars
             self.logger.info(str_info)
-            # print(str_info)
+            print(str_info)
+            #
+            tf_shapes = [tf.shape(v) for v in self.trainable_vars]
+            shapes_v = self._sess.run(tf_shapes)
+            self.param_num = sum([np.prod(item) for item in shapes_v])
+            #
+            str_info = 'There are %d parameters in the model' % self.param_num
+            self.logger.info(str_info)
+            print(str_info)
             #
             
             #
