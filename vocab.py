@@ -29,16 +29,21 @@ class Vocab(object):
         self.emb_dim = 64
         self.embeddings = None
 
+        self._add_predefined_tokens()
+        
+        self.initial_tokens = initial_tokens
+        for token in self.initial_tokens:
+            self.add(token, cnt = 10000)
+            
+    def _add_predefined_tokens(self):
+        
         self.add(self.pad_token, 10000)  # make pad_token id: 0
         self.add(self.unk_token, 10000)
         self.add(self.start_token, 10000)
         self.add(self.end_token, 10000)
         self.add(self.mask_token, 10000)
-        self.add(self.replace_token, 10000)
-        
-        self.initial_tokens = initial_tokens
-        for token in self.initial_tokens:
-            self.add(token, cnt = 10000)
+        self.add(self.replace_token, 10000)        
+        #
 
     def size(self):
         return len(self.dict_id2token)
@@ -144,10 +149,7 @@ class Vocab(object):
         # rebuild the token ~ id map
         self.dict_token2id = {}
         self.dict_id2token = {}
-        self.add(self.pad_token, 0)   # 0
-        self.add(self.unk_token, 0)
-        self.add(self.start_token, 0)
-        self.add(self.end_token, 0)
+        self._add_predefined_tokens()
         for token in self.initial_tokens:
             self.add(token, cnt=0)
         for token in filtered_tokens:
