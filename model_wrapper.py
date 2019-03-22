@@ -204,11 +204,18 @@ class ModelWrapper():
             #
             tf_shapes = [tf.shape(v) for v in self.trainable_vars]
             shapes_v = self._sess.run(tf_shapes)
-            self.param_num = sum([np.prod(item) for item in shapes_v])
+            params_v = [np.prod(item) for item in shapes_v]
+            self.param_num = sum(params_v)
             #
             str_info = 'There are %d parameters in the model' % self.param_num
             self.logger.info(str_info)
             print(str_info)
+            #
+            print()
+            for idx in range(self.num_vars):
+                print(self.trainable_vars[idx])
+                print(params_v[idx])
+            print()
             #
             
             # outputs train
@@ -354,7 +361,7 @@ class ModelWrapper():
                 #
                 grads_bundles.append(grads_reg_clear)
                 #
-            #            
+            #           
             # grad sum
             grads_summed = ModelWrapper.sum_up_gradients(grads_bundles)
             #            
@@ -388,11 +395,18 @@ class ModelWrapper():
             #
             tf_shapes = [tf.shape(v) for v in self.trainable_vars]
             shapes_v = self._sess.run(tf_shapes)
-            self.param_num = sum([np.prod(item) for item in shapes_v])
+            params_v = [np.prod(item) for item in shapes_v]
+            self.param_num = sum(params_v)
             #
             str_info = 'There are %d parameters in the model' % self.param_num
             self.logger.info(str_info)
             print(str_info)
+            #
+            print()
+            for idx in range(self.num_vars):
+                print(self.trainable_vars[idx])
+                print(params_v[idx])
+            print()
             #
             
             #

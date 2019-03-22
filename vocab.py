@@ -13,6 +13,7 @@ class Vocab(object):
     end_token = '[end]'
     mask_token = '[mask]'
     replace_token = '[replace]'
+    # unchange_token = '[unchge]'
     vocab_start_idx = 6
     
     delimiter_str = '[tokensep]'

@@ -40,10 +40,27 @@ def dense(inputs, hidden, use_bias=True, scope="dense"):
             res = tf.nn.bias_add(res, b)
         res = tf.reshape(res, out_shape)
         return res
+    
+def dense_with_w(inputs, hidden, weights, transpose_b=False):
+    shape = tf.shape(inputs)
+    shape_list = inputs.get_shape().as_list()    
+    out_shape = [shape[idx] for idx in range(len(shape_list) - 1)] + [hidden]
+    dim = shape_list[-1]
+    flat_inputs = tf.reshape(inputs, [-1, dim])
+    res = tf.matmul(flat_inputs, weights, transpose_b = transpose_b)
+    res = tf.reshape(res, out_shape)
+    return res
         
 def gelu(x):
     cdf = 0.5 * (1.0 + tf.tanh((0.79788456 * (x + 0.044715 * tf.pow(x, 3)) )))
     return x * cdf
+
+def layer_norm(x, name=None):
+    out = tf.contrib.layers.layer_norm(inputs = x,
+                                       begin_norm_axis = -1,
+                                       begin_params_axis = -1,
+                                       scope = name)
+    return out
     
 #
 def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
