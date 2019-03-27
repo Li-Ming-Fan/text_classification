@@ -75,17 +75,12 @@ def transfer_to_data_examples(data_converted):
 
 #
 # vocab    
-def build_vocab_tokens(data_seg, filter_cnt = 5):
-    
-    vocab = Vocab()
-    corp = []
-    
+def build_vocab_tokens(data_seg, vocab):
+    corp = []    
     for tokens, label in data_seg:
         corp.append(tokens)
     #
     vocab.add_tokens_from_corpus(corp)
-    #
-    vocab.filter_tokens_by_cnt(filter_cnt)
     #    
     return vocab
 

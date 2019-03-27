@@ -127,7 +127,7 @@ class Dataset():
         """        
         print('build vocab tokens and randomly initialize emb ...')
         self.vocab = Vocab()
-        self.vocab = build_vocab_tokens(self.data_seg, self.vocab_filter_cnt)
+        self.vocab = build_vocab_tokens(self.data_seg, self.vocab)
         self.vocab.filter_tokens_by_cnt(self.vocab_filter_cnt)
         self.vocab.randomly_init_embeddings(self.emb_dim)
         
