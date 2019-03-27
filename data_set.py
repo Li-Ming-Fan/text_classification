@@ -12,29 +12,31 @@ import os
 import random
 # random.shuffle(list_ori, random.seed(10))
 
-import data_utils
 from vocab import Vocab
+from data_utils import load_from_file_raw, clean_and_seg_list_raw
+from data_utils import convert_data_seg_to_ids, transfer_to_data_examples
+from data_utils import build_vocab_tokens
+from data_utils import save_data_to_pkl, load_data_from_pkl
 
 
 class Dataset():
     
-    def __init__(self, list_files = [], vocab = None):
+    def __init__(self, dir_examples = None, dir_vocab = None):
+        
+        # directories for saving results
+        self.dir_vocab = dir_vocab
+        self.dir_examples = dir_examples
         
         # vocab and examples
-        self.vocab = vocab
+        self.vocab = None
         self.data_examples = []             # data_examples
         
-        # directories for saving results, auto-mk,
-        self.dir_vocab = './vocab'
-        self.dir_data_examples = './data_examples'
-        
         # vocab-related settings
-        self.vocab_filter_cnt = 5
+        self.vocab_filter_cnt = 2
         self.emb_dim = 64
-        self.pretrained_emb_file = None
              
         # data_raw process
-        self.list_files = list_files
+        self.list_files = []
         self.data_raw = []                  # data_raw
         self.data_seg = []                  # data_seg        
         #
@@ -48,12 +50,13 @@ class Dataset():
         """
         vocab = settings.vocab
         
-        data_seg = data_utils.clean_and_seg_list_raw(data_raw)
-        data_c = data_utils.convert_data_seg_to_ids(vocab, data_seg)
+        data_seg = clean_and_seg_list_raw(data_raw)
+        data_c = convert_data_seg_to_ids(data_seg, vocab)
+        data_e = transfer_to_data_examples(data_c)
         #
-        if len(data_c) == 0: return []
+        if len(data_e) == 0: return []
         #
-        data_batches = Dataset.do_batching_data(data_c, len(data_c), False)        
+        data_batches = Dataset.do_batching_data(data_e, len(data_e), False)        
         data_standardized = Dataset.do_standardizing_batches(data_batches, settings)
         return data_standardized[0]
 
@@ -64,7 +67,7 @@ class Dataset():
         """
         print('load data_raw ...')
         for item in self.list_files:
-            data_raw = data_utils.load_from_file_raw(item)
+            data_raw = load_from_file_raw(item)
             self.data_raw.extend(data_raw)
         # self.data_raw = data_utils.load_from_file_raw(self.list_files[0])
     
@@ -77,18 +80,21 @@ class Dataset():
         self.load_data_raw()
 
         print('cleanse and seg ...')        
-        self.data_seg = data_utils.clean_and_seg_list_raw(self.data_raw)
+        self.data_seg = clean_and_seg_list_raw(self.data_raw)
 
         # vocab
         if load_vocab:
-            self.load_vocab_tokens_and_emb()
+            self.load_vocab_tokens()
         else:
-            self.build_vocab_tokens_and_emb()
+            self.build_vocab_tokens()
         print('num_tokens in vocab: %d' % self.vocab.size() )
         #
         # convert
         print('convert to ids ...')
-        self.data_examples = data_utils.convert_data_seg_to_ids(self.vocab, self.data_seg)
+        self.data_converted = convert_data_seg_to_ids(self.data_seg, self.vocab)
+        #
+        print('transfer to examples ...')
+        self.data_examples = transfer_to_data_examples(self.data_converted)
         #        
         print('data_examples prepared')
         
@@ -98,29 +104,37 @@ class Dataset():
         """
         """
         print('save data_examples ...')
-        if not os.path.exists(self.dir_data_examples): os.makedirs(self.dir_data_examples)
+        if not os.path.exists(self.dir_examples): os.makedirs(self.dir_examples)
         
         if file_path is None:
-            file_path = os.path.join(self.dir_data_examples, "data_examples.pkl")            
+            file_path = os.path.join(self.dir_examples, "data_examples.pkl")            
         #
-        data_utils.save_data_to_pkl(self.data_examples, file_path)
+        save_data_to_pkl(self.data_examples, file_path)
         
     def load_data_examples(self, file_path = None):
         """
         """
         print('load data_examples ...')
         if file_path is None:
-            file_path = os.path.join(self.dir_data_examples, "data_examples.pkl")
+            file_path = os.path.join(self.dir_examples, "data_examples.pkl")
         #
-        self.data_examples = data_utils.load_data_from_pkl(file_path)
+        self.data_examples = load_data_from_pkl(file_path)
         
     #
     # vocab, task-independent
+    def build_vocab_tokens(self):
+        """
+        """        
+        print('build vocab tokens and randomly initialize emb ...')
+        self.vocab = Vocab()
+        self.vocab = build_vocab_tokens(self.data_seg, self.vocab_filter_cnt)
+        self.vocab.filter_tokens_by_cnt(self.vocab_filter_cnt)
+        self.vocab.randomly_init_embeddings(self.emb_dim)
+        
     def load_vocab_tokens(self, file_tokens = None, emb_dim = None):
         """
         """
         print('load vocab tokens and randomly initialize emb ...')
-        
         if file_tokens is None:
             file_tokens = os.path.join(self.dir_vocab, 'vocab_tokens.txt')
         if emb_dim is None:
@@ -128,47 +142,19 @@ class Dataset():
 
         self.vocab = Vocab()
         self.vocab.add_tokens_from_file(file_tokens)
+        self.vocab.filter_tokens_by_cnt(self.vocab_filter_cnt)
         self.vocab.randomly_init_embeddings(emb_dim)
-        
-    def build_vocab_tokens_and_emb(self):
-        
-        print('build vocab tokens and emb ...')
-        # token
-        self.vocab = data_utils.build_vocab_tokens(self.data_seg, self.vocab_filter_cnt)
-        
-        # emb
-        if self.pretrained_emb_file:
-            self.vocab.load_pretrained_embeddings(self.pretrained_emb_file)             
-        else:
-            self.vocab.randomly_init_embeddings(self.emb_dim)
-  
-    def load_vocab_tokens_and_emb(self, file_tokens = None, file_emb = None):
-        """
-        """
-        print('load vocab tokens and emb ...')
-        
-        if file_tokens is None:
-            file_tokens = os.path.join(self.dir_vocab, 'vocab_tokens.txt')
-        if file_emb is None:
-            file_emb = os.path.join(self.dir_vocab, 'vocab_emb.bin')
-
-        self.vocab = Vocab()
-        self.vocab.add_tokens_from_file(file_tokens)
-        self.vocab.load_pretrained_embeddings(file_emb)
     
-    def save_vocab_tokens_and_emb(self, file_tokens = None, file_emb = None):
+    def save_vocab_tokens(self, file_tokens = None, file_emb = None):
         """
         """
         print('save vocab tokens and emb ...')
-        if not os.path.exists(self.dir_vocab): os.mkdir(self.dir_vocab) 
+        if not os.path.exists(self.dir_vocab): os.mkdir(self.dir_vocab)
         
         if file_tokens is None:
             file_tokens = os.path.join(self.dir_vocab, 'vocab_tokens.txt')
-        if file_emb is None:
-            file_emb = os.path.join(self.dir_vocab, 'vocab_emb.bin')
             
         self.vocab.save_tokens_to_file(file_tokens)
-        self.vocab.save_embeddings_to_file(file_emb)
         
     #
     # task-independent
@@ -308,127 +294,8 @@ class Dataset():
             
         return x_padded, x_len
 
-    
-    
+#    
 if __name__ == '__main__':
     
-    list_files = ['./data_raw/data_raw.txt']
-    
-    pretrained_emb_file = None
-    # pretrained_emb_file = '../z_data/wv_64.txt'
-    
-    #
-    num_classes = 2
-    label_posi = 1
-    #
-    
-    #
-    dataset = Dataset(list_files)
-    #
-    dataset.pretrained_emb_file = pretrained_emb_file
-    dataset.vocab_filter_cnt = 2
-    dataset.emb_dim = 64
-    
-    #
-    # prepare
-    dataset.prepare_data_examples(load_vocab = False)
-    #
-    dataset.save_vocab_tokens_and_emb()     # save or NOT
-    dataset.save_data_examples()            # save or NOT
-    #
-    print('prepared')
-    #
-    # test load
-    dataset.load_vocab_tokens()
-    #
-    dataset.load_vocab_tokens_and_emb()    
-    dataset.load_data_examples()
-    print('loaded')
-    #
-    
-    #
-    # split
-    data_examples = dataset.data_examples
-    random.shuffle(data_examples)
-    #
-    data_train, data_test = Dataset.split_train_and_test(data_examples,
-                                                         ratio_split = 0.9)
-    data_train, data_valid = Dataset.split_train_and_test(data_train,
-                                                          ratio_split = 0.9)
-    #
-    print()
-    print('num_train: %d' % len(data_train))
-    print('num_valid: %d' % len(data_valid))
-    print('num_test: %d' % len(data_test))
-    print('num_all: %d' % len(data_examples))
-    print()
-    #
-    c_train = data_utils.do_data_statistics(data_train, label_posi, num_classes)
-    print('num train: ')
-    print(c_train)
-    c_valid = data_utils.do_data_statistics(data_valid, label_posi, num_classes)
-    print('num valid: ')
-    print(c_valid)
-    c_test = data_utils.do_data_statistics(data_test, label_posi, num_classes)
-    print('num test: ')
-    print(c_test)
-    c_all = data_utils.do_data_statistics(data_examples, label_posi, num_classes)
-    print('num all: ')
-    print(c_all)
-    print()
-    
-    #
-    print('balancing train data ...')
-    # data_train = Dataset.do_balancing_classes(data_train, label_posi, num_classes)
-    random.shuffle(data_train)
-    #
-    c_train = data_utils.do_data_statistics(data_train, label_posi, num_classes)
-    print('num train: ')
-    print(c_train)
-    print()
-    #
-    # dataset.save_data_examples()          # save or NOT
-    #
-    dataset.data_examples = data_train
-    dataset.save_data_examples('./data_examples/data_examples_train.pkl')          # save or NOT
-    #
-    dataset.data_examples = data_valid
-    dataset.save_data_examples('./data_examples/data_examples_valid.pkl')          # save or NOT
-    #
-    dataset.data_examples = data_test
-    dataset.save_data_examples('./data_examples/data_examples_test.pkl')          # save or NOT
-    #
-    print('prepared')
-    print()
-    
-
-    #
-    # from collections import namedtuple
-    # Settings = namedtuple('Settings', ['vocab','min_seq_len','max_seq_len'])
-    # settings = Settings(dataset.vocab, 5, 1000)
-    #
-    from model_settings import ModelSettings
-    settings = ModelSettings(vocab = dataset.vocab)
-    #
-    # test batching
-    #
-    # train_batches = Dataset.do_batching_data(data_train, 32)
-    test_batches = Dataset.do_batching_data(data_valid, 32)
-    #
-    # train_batches_padded = Dataset.do_standardizing_batches(train_batches, settings)
-    test_batches_padded = Dataset.do_standardizing_batches(test_batches, settings)
-    print('batched')
-    #
-    # test for prediction
-    dataset.load_data_raw()
-    data_raw = dataset.data_raw
-    #
-    num_examples = len(data_raw)
-    data_raw = data_raw[0:min(10, num_examples)]
-    #
-    data_pred = Dataset.preprocess_for_prediction(data_raw, settings)    
-    print('test for pred')
-    #
-    
-
+    pass
 

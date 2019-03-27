@@ -142,4 +142,27 @@ def do_debug(model, data_debug):
         print(result)
         #
     #
+
+#  
+def do_predict(model, data_examples):    
+    #
+    batch_size_eval = model.batch_size_eval
+    #
+    shuffle_seed = Dataset.generate_shuffle_seed()
+    data_batches = Dataset.do_batching_data(data_examples, batch_size_eval, shuffle_seed)
+    data_batches = Dataset.do_standardizing_batches(data_batches, model.settings)
+    #
+    report = []
+    #
+    count_max = len(data_batches)
+    for idx in range(count_max):
+        batch = data_batches[idx]
+        #
+        result = model.predict_from_batch(batch)
+        #
+        print(result)
+        #
+    #
+    return report
+    #
     

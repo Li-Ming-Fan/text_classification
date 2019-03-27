@@ -198,7 +198,7 @@ class ModelWrapper():
             
             # params count
             self.num_vars = len(self.trainable_vars)
-            str_info = 'Graph built, there are %d variables in the model' % self.num_vars
+            str_info = 'graph built, there are %d variables in the model' % self.num_vars
             self.logger.info(str_info)
             print(str_info)
             #
@@ -207,7 +207,7 @@ class ModelWrapper():
             params_v = [np.prod(item) for item in shapes_v]
             self.param_num = sum(params_v)
             #
-            str_info = 'There are %d parameters in the model' % self.param_num
+            str_info = 'there are %d parameters in the model' % self.param_num
             self.logger.info(str_info)
             print(str_info)
             #
@@ -389,7 +389,7 @@ class ModelWrapper():
             
             # params count
             self.num_vars = len(self.trainable_vars)
-            str_info = 'Graph built, there are %d variables in the model' % self.num_vars
+            str_info = 'graph built, there are %d variables in the model' % self.num_vars
             self.logger.info(str_info)
             print(str_info)
             #
@@ -398,7 +398,7 @@ class ModelWrapper():
             params_v = [np.prod(item) for item in shapes_v]
             self.param_num = sum(params_v)
             #
-            str_info = 'There are %d parameters in the model' % self.param_num
+            str_info = 'there are %d parameters in the model' % self.param_num
             self.logger.info(str_info)
             print(str_info)
             #

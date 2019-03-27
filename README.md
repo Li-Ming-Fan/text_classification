@@ -17,11 +17,11 @@ Single GPU or Multi GPU.
 
 To run this repo:
 
-1, python data_set.py
+1, python script_data.py
 
-2, python script_train_and_eval.py --model=cnn
+2, python script_runner.py --model_tag=cnn --mode=train
 
-3, python script_predict.py --model=cnn
+3, python script_runner.py --model_tag=cnn --mode=predict
 
 
 </br>
@@ -29,9 +29,9 @@ To run this repo:
 
 To specifiy gpu to be used:
 
-2', python script_train_and_eval.py --model=cnn --gpu=0
+2', python script_runner.py --model_tag=cnn --mode=train --gpu=0
 
-2'', python script_train_and_eval.py --model=cnn --gpu=0,1
+2'', python script_runner.py --model_tag=cnn --mode=train --gpu=0,1
 
 
 </br>

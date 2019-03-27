@@ -13,10 +13,10 @@ class Vocab(object):
     end_token = '[end]'
     mask_token = '[mask]'
     replace_token = '[replace]'
-    # unchange_token = '[unchge]'
-    vocab_start_idx = 6
+    unchange_token = '[unchge]'
+    vocab_start_idx = 7
     
-    delimiter_str = '[tokensep]'
+    delimiter_str = '[strsep]'
     
     def __init__(self, initial_tokens = [], lower = False):
         """
@@ -42,7 +42,8 @@ class Vocab(object):
         self.add(self.start_token, 10000)
         self.add(self.end_token, 10000)
         self.add(self.mask_token, 10000)
-        self.add(self.replace_token, 10000)        
+        self.add(self.replace_token, 10000)   
+        self.add(self.unchange_token, 10000)
         #
 
     def size(self):

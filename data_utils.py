@@ -63,11 +63,14 @@ def clean_and_seg_list_raw(data_raw):
         data_seg.append( (text_tokens, label) )
     return data_seg
 #
-def convert_data_seg_to_ids(vocab, data_seg):
+def convert_data_seg_to_ids(data_seg, vocab):
     data_converted = []
     for item, label in data_seg:
         ids = vocab.convert_tokens_to_ids(item)
         data_converted.append( (ids, label) )
+    return data_converted
+#  
+def transfer_to_data_examples(data_converted):
     return data_converted
 
 #
