@@ -331,10 +331,10 @@ class Vocab(object):
             ids: a list of ids
         """
         tokens = []
-        for i in ids:
-            tokens += [self.get_token(i)]
+        for i in ids:            
             if stop_id is not None and i == stop_id:
                 break
+            tokens += [self.get_token(i)]
         return tokens
 
 #

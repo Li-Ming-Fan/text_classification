@@ -56,7 +56,7 @@ class Dataset():
         #
         if len(data_e) == 0: return []
         #
-        data_batches = Dataset.do_batching_data(data_e, len(data_e), False)        
+        data_batches = Dataset.do_batching_data(data_e, len(data_e), None)        
         data_standardized = Dataset.do_standardizing_batches(data_batches, settings)
         return data_standardized[0]
 
