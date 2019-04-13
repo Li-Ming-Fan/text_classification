@@ -5,12 +5,15 @@ Created on Tue Aug 28 21:12:23 2018
 @author: limingfan
 """
 
-import os
-import time
-import logging
+from Zeras.model_settings_template import ModelSettingsTemplate
 
-class ModelSettings(object):
+class ModelSettings(ModelSettingsTemplate):
+    """
+    """
     def __init__(self, vocab = None, is_train = None):
+        """
+        """
+        super(ModelSettings, self).__init__()
         
         # model graph
         self.model_tag = None
@@ -82,83 +85,14 @@ class ModelSettings(object):
         self.log_dir = None
         self.log_path = None
         #
-    
-    def check_settings(self):
-        """ assert and make directories
-        """
-        assert self.vocab is not None, 'vocab is None'
-        
-        # assert         
-        assert self.is_train is not None, 'is_train not assigned'               
-        assert self.model_tag is not None, 'model_tag is None'
-        
-        # gpu
-        self.num_gpu = len(self.gpu_available.split(","))
-        
-        # directories
-        if self.model_dir is None:
-            self.model_dir = os.path.join(self.base_dir, 'model_' + self.model_tag)
-        if self.log_dir is None: self.log_dir = os.path.join(self.base_dir, 'log')
-        #
-        if not os.path.exists(self.base_dir): os.mkdir(self.base_dir)
-        if not os.path.exists(self.model_dir): os.mkdir(self.model_dir)
-        if not os.path.exists(self.model_dir + '_best'): os.mkdir(self.model_dir + '_best')
-        if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
-        #
-        # files
-        if self.model_name is None: self.model_name = 'model_' + self.model_tag
-        if self.pb_file is None: self.pb_file = os.path.join(self.model_dir + '_best',
-                                                             self.model_name + '.pb')
-        #
-        str_datetime = time.strftime("%Y-%m-%d-%H-%M")       
-        if self.log_path is None: self.log_path = os.path.join(
-                self.log_dir, self.model_name + "_" + str_datetime +".txt")
-        #
-        # logger
-        self.logger = logging.getLogger(self.log_path)  # use log_path as log_name
-        self.logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(self.log_path)
-        handler.setLevel(logging.INFO)
-        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-        # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
-        # self.logger.info('test')
-        #
-        self.display()
-        #
-        
-    def create_or_reset_log_file(self):        
-        with open(self.log_path, 'w', encoding='utf-8'):
-            pass
-        
-    def close_logger(self):
-        for item in self.logger.handlers: item.close()
-        
-    def display(self):
-        
-        print()
-        for name,value in vars(self).items():
-            if not isinstance(value, (int, float, str, bool, list, dict, tuple)):
-                continue
-            print(str(name) + ': ' + str(value))
-        print()
-        
-    def trans_info_to_dict(self):
-                
-        info_dict = {}
-        for name,value in vars(self).items():
-            if not isinstance(value, (int, float, str, bool, list, dict, tuple)):
-                continue
-            info_dict[str(name)] = value        
-        return info_dict
-    
+
         
 if __name__ == '__main__':
     
-    sett = ModelSettings('vocab_placeholder', False)
+    sett = ModelSettings()
     
     sett.model_tag = 'cnn'
+    sett.is_train = False
     
     #print(dir(sett))    
     #l = [i for i in dir(sett) if inspect.isbuiltin(getattr(sett, i))]

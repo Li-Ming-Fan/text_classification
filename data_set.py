@@ -12,7 +12,8 @@ import os
 import random
 # random.shuffle(list_ori, random.seed(10))
 
-from vocab import Vocab
+from Zeras.vocab import Vocab
+
 from data_utils import load_from_file_raw, clean_and_seg_list_raw
 from data_utils import convert_data_seg_to_ids, transfer_to_data_examples
 from data_utils import build_vocab_tokens

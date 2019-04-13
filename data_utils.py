@@ -10,7 +10,7 @@ import pickle
 import jieba as segmentor
 
 
-from vocab import Vocab
+from Zeras.vocab import Vocab
 
 
 

@@ -7,8 +7,8 @@ from model_settings import ModelSettings
 import model_utils
 
 
-from vocab import Vocab
-from model_wrapper import ModelWrapper
+from Zeras.vocab import Vocab
+from Zeras.model_wrapper import ModelWrapper
 
 
 import argparse
