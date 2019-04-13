@@ -25,7 +25,7 @@ import queue as Queue
 
 
 class DataBatcher(object):    
-    """ This class is task-agnostic
+    """ This class is meant to be task-agnostic
     """    
     BATCH_QUEUE_MAX = 300       # max number of batches the batch_queue can hold
     BATCH_TIME_OUT = 5          # seconds

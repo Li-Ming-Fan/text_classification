@@ -30,7 +30,7 @@ def parse_args():
     model_related.add_argument('--base_dir', type=str, default = './',
                                help='base directory for saving results')
     model_related.add_argument('--model_tag', type=str,
-                               default = 'cap', help='model_tag')
+                               default = 'cnn', help='model_tag')
     #
     vocab_related = parser.add_argument_group('vocab related settings')
     vocab_related.add_argument('--emb_file', type=str, default = None,
