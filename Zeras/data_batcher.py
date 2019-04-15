@@ -23,7 +23,17 @@ import queue as Queue
 # from multiprocessing import Process        # True Process
 # from multiprocessing.dummy import Process    # A wrapper of Thread
 
+def get_generator_for_list(list_data):
+    """
+    """
+    def gen(single_pass=True):
+        while True:
+            for item in list_data: yield item
+            if single_pass: break
+            #
+    return gen
 
+#
 class DataBatcher(object):    
     """ This class is meant to be task-agnostic
     """    
@@ -31,11 +41,15 @@ class DataBatcher(object):
     BATCH_TIME_OUT = 5          # seconds
     EXAMPLE_TIME_OUT = 2
     
-    def __init__(self, example_iter, batch_standardizer,
+    def __init__(self, example_gen_or_list, batch_standardizer,
                  batch_size, single_pass, with_bucket=False, worker_type="thread"):
         """
         """
-        self.example_iter = example_iter
+        if isinstance(example_gen_or_list, list):
+            self.example_gen = get_generator_for_list(example_gen_or_list)
+        else:
+            self.example_gen = example_gen_or_list
+        #
         self.batch_standardizer = batch_standardizer
         self.batch_size = batch_size
         self.with_bucket = with_bucket
@@ -117,9 +131,11 @@ class DataBatcher(object):
     def fill_example_queue(self):
         """
         """
+        example_iter = self.example_gen(single_pass=self.single_pass)
+        #
         while True:
             try:
-                base_example = next(self.example_iter)
+                base_example = next(example_iter)
                 # print(base_example)
                 #
             except BaseException: # if there is no more example:                

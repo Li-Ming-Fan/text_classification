@@ -115,12 +115,10 @@ def dense_with_vars(inputs, Wb, transpose_b=False):
     out = tf.reshape(out, out_shape)
     return out
 
-def layer_norm(x, name=None):
-    out = tf.contrib.layers.layer_norm(inputs = x,
-                                       begin_norm_axis = -1,
-                                       begin_params_axis = -1,
-                                       scope = name)
-    return out
+def layer_norm(x, scope=None):
+    num_units = tf.shape(x)[-1]
+    ln = LayerNorm(num_units, scope=scope)
+    return ln(x)
     
 # 
 def build_module_copies(module_class, class_args, N, scope="module_copies"):
@@ -144,11 +142,12 @@ def qkv_att_layer(query, key, value, mask_mat=None, keep_prob=1.0):
         mask_mat: [B, TQ, TK], or [1, TQ, TK]
         
         return: [B, TQ, DV]
+        3-dim, or higher-dim
     """
     dim = query.get_shape().as_list()[-1]
     att_mat = tf.matmul(query, key, transpose_b=True) / (dim ** 0.5)
     #
-    if mask_mat:
+    if mask_mat is not None:
         att_mat = tf.add(att_mat, 1e16 * (mask_mat - 1) )  # -inf   # [B, TQ, TM]
     #
     logits = tf.nn.softmax(att_mat)
@@ -172,10 +171,10 @@ class MultiHeadAttention():
         
         d_model = num_heads * num_units
         with tf.variable_scope(scope):
-            self.dense_query = Dense(d_model, d_model, "dense_query")
-            self.dense_key = Dense(d_model, d_model, "dense_key")
-            self.dense_value = Dense(d_model, d_model, "dense_value")
-            self.dense_trans = Dense(d_model, d_model, "dense_trans")
+            self.dense_query = Dense(d_model, d_model, scope="dense_query")
+            self.dense_key = Dense(d_model, d_model, scope="dense_key")
+            self.dense_value = Dense(d_model, d_model, scope="dense_value")
+            self.dense_trans = Dense(d_model, d_model, scope="dense_trans")
             
         
     def __call__(self, query, key, value, mask_mat=None):
@@ -183,15 +182,17 @@ class MultiHeadAttention():
         """
         qd = self.dense_query(query)
         kd = self.dense_key(key)
-        vd = self.dense_value(value)        
+        vd = self.dense_value(value)
         #
         spq = tf.shape(query)
         batch_size = spq[0]
-        time_len = spq[1]
+        q_len = spq[1]
+        k_len = tf.shape(key)[1]
+        # v_len = spq[1]
         #
-        qs = tf.reshape(qd, [batch_size, time_len, self.num_heads, self.num_units])
-        ks = tf.reshape(kd, [batch_size, time_len, self.num_heads, self.num_units])
-        vs = tf.reshape(vd, [batch_size, time_len, self.num_heads, self.num_units])
+        qs = tf.reshape(qd, [batch_size, q_len, self.num_heads, self.num_units])
+        ks = tf.reshape(kd, [batch_size, k_len, self.num_heads, self.num_units])
+        vs = tf.reshape(vd, [batch_size, k_len, self.num_heads, self.num_units])
         #
         qe = tf.transpose(qs, [0, 2, 1, 3])   # to [B, H, T, D]
         ke = tf.transpose(ks, [0, 2, 1, 3])
@@ -210,10 +211,10 @@ class MultiHeadAttention():
         
         # concat
         out_c = tf.transpose(out, [0, 2, 1, 3])           # to [B, T, H, D]
-        out_c = tf.reshape(out, [batch_size, time_len, self.dim_all])    
+        out_c = tf.reshape(out, [batch_size, q_len, self.dim_all])    
         
         # linear
-        out_d = tf.layers.dense(out_c, self.dim_all, name="out_d")
+        out_d = self.dense_trans(out_c)
         return out_d
     
 class PositionwiseFeedForward():
@@ -233,7 +234,7 @@ class PositionwiseFeedForward():
         return x
 
 #
-def SublayerWrapper():
+class SublayerWrapper():
     """
     """
     def __init__(self, num_units, keep_prob, sublayer_class, class_args,
@@ -241,7 +242,7 @@ def SublayerWrapper():
         """
         """
         with tf.variable_scope(scope):
-            self.layer_norm = LayerNorm(num_units)
+            self.layer_norm = LayerNorm(num_units, scope="sublayer_wrapper")
             self.dropout = Dropout(keep_prob)
             self.sublayer = sublayer_class(*class_args)
     
@@ -251,18 +252,20 @@ def SublayerWrapper():
         return x + self.dropout(sublayer_invoker(self.layer_norm(x)))
     
 #
-def get_mask_mat_from_mask_seq(mask):
-    """ mask: [B, T]
+def get_mask_mat_from_mask_seq(mask_a, mask_b):
+    """ mask_a: [B, TA]
     """
-    mask = tf.cast(tf.expand_dims(mask, 1), tf.float32)
-    mask_rows = tf.transpose(mask, [0, 2, 1])
-    mask = mask * mask_rows
+    mask_ae = tf.cast(tf.expand_dims(mask_a, 2), tf.float32)  # [B, TA, 1]
+    mask_be = tf.cast(tf.expand_dims(mask_b, 1), tf.float32)  # [B, 1, TB]
+    mask = mask_ae * mask_be    # [B, TA, TB]
     return mask
 
 #
 def get_mask_mat_subsequent(size, name="mask_subsequent"):
+    """ subsequent mask
     """
-    """    
+    
+    """
     mask_mat = np.zeros((1, size, size), dtype = np.float32)
     for idx in range(size):
         for idy in range(size):
@@ -271,19 +274,37 @@ def get_mask_mat_subsequent(size, name="mask_subsequent"):
     mask_tensor = tf.get_variable(name, shape = (1, size, size),
                                   initializer = tf.constant_initializer(mask_mat),
                                   trainable = False)
+    """
+    #
+    mask_tensor = tf.constant(1.0, shape = (1, size, size), dtype=tf.float32)
+    mask_tensor = tf.linalg.band_part(mask_tensor,
+                                      num_lower = -1,
+                                      num_upper = 0,
+                                      name = name)
     return mask_tensor
 
-def get_list_subs_masks(max_len, name="mask_subsequent"):
-    """
+def get_list_subs_masks(max_len, name="subs_mask"):
+    """ subsequent masks
     """    
     list_masks = []
     for step in range(max_len):
-        subs_mask = get_mask_mat_subsequent(step, name = name+"_%d" % step)
+        subs_mask = get_mask_mat_subsequent(step+1, name = name+"_%d" % step)
         list_masks.append(subs_mask)
+    return list_masks
+
+def get_list_dcd_crs_masks(src_mask_seq, max_len):
+    """ decoder cross masks
+    """    
+    list_masks = []
+    mask_be = tf.cast(tf.expand_dims(src_mask_seq, 1), tf.float32)  # [B, 1, TB]
+    for step in range(max_len):        
+        crs_mask = tf.tile(mask_be, [1, step+1, 1])
+        list_masks.append(crs_mask)
     return list_masks
     
 #
-def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model):
+def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model,
+                         name="position_embeddings"):
     """
     """
     d_model_recip_2 = 2.0 / posi_emb_model
@@ -298,14 +319,13 @@ def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model):
     #    
     pe_sin = np.expand_dims(pe_sin, -1)  
     pe_cos = np.expand_dims(pe_cos, -1)
-    pe_all = np.concat([pe_sin, pe_cos], -1)  # (T, D, 2)
+    pe_all = np.concatenate([pe_sin, pe_cos], -1)  # (T, D, 2)
     #
     pe_all = np.reshape(pe_all, [max_seq_len, -1])
     pe_all = pe_all[:, 0:posi_emb_dim]
     #
     # tf.Tensor
-    pe_mat = tf.get_variable("position_embeddings",
-                             shape = (max_seq_len, posi_emb_dim),
+    pe_mat = tf.get_variable(name, shape = (max_seq_len, posi_emb_dim),
                              initializer = tf.constant_initializer(pe_all),
                              trainable = False)
         

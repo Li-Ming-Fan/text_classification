@@ -35,8 +35,6 @@ def parse_args():
     vocab_related = parser.add_argument_group('vocab related settings')
     vocab_related.add_argument('--emb_file', type=str, default = None,
                                help='pretrained embeddings file')
-    vocab_related.add_argument('--emb_dim', type=int,
-                               default = 64, help='embeddings dim')
     vocab_related.add_argument('--filter_cnt', type=int,
                                default = 2, help='filter tokens')
     vocab_related.add_argument('--tokens_file', type=str,
@@ -101,18 +99,19 @@ if __name__ == '__main__':
     else:
         assert False, "NOT supported model_tag"
     #
-    # vocab and settings
-    vocab = Vocab()
-    vocab.add_tokens_from_file(args.tokens_file)
-    vocab.filter_tokens_by_cnt(args.filter_cnt)
-    vocab.emb_dim = args.emb_dim
-    vocab.load_pretrained_embeddings(args.emb_file)
-    #
-    settings = ModelSettings(vocab)
+    # settings and vocab
+    settings = ModelSettings()
     settings.model_tag = model_tag
     settings.model_graph = ModelGraph
     settings.gpu_available = args.gpu
-    #    
+    # 
+    vocab = Vocab()
+    vocab.add_tokens_from_file(args.tokens_file)
+    vocab.filter_tokens_by_cnt(args.filter_cnt)
+    vocab.emb_dim = settings.emb_dim
+    vocab.load_pretrained_embeddings(args.emb_file)
+    settings.vocab = vocab
+    #       
     if run_mode == 'predict':
         settings.is_train = False
     else:

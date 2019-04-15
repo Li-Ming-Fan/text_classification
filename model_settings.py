@@ -10,7 +10,7 @@ from Zeras.model_settings_template import ModelSettingsTemplate
 class ModelSettings(ModelSettingsTemplate):
     """
     """
-    def __init__(self, vocab = None, is_train = None):
+    def __init__(self):
         """
         """
         super(ModelSettings, self).__init__()
@@ -18,7 +18,7 @@ class ModelSettings(ModelSettingsTemplate):
         # model graph
         self.model_tag = None
         self.model_graph = None
-        self.vs_str_multi_gpu = "vs_multi_gpu"
+        self.is_train = None        
         #
         
         # data macro     
@@ -31,7 +31,8 @@ class ModelSettings(ModelSettingsTemplate):
         self.num_classes = 2
         
         # vocab
-        self.vocab = vocab
+        self.vocab = None
+        self.emb_dim = 64
         self.emb_tune = 0  # 1 for tune, 0 for not
         
         # train
@@ -41,7 +42,6 @@ class ModelSettings(ModelSettingsTemplate):
         self.soft_placement = True
         
         self.with_bucket = False
-        self.is_train = is_train
         
         self.num_epochs = 100     
         self.batch_size = 32
@@ -62,15 +62,15 @@ class ModelSettings(ModelSettingsTemplate):
         self.valid_period_batch = 100
         #
         
-        # inputs/outputs - predict
+        # inputs/outputs
+        self.vs_str_multi_gpu = "vs_multi_gpu"
+        #
         self.inputs_predict_name = ['input_x:0']     
         self.outputs_predict_name = ['vs_multi_gpu/score/logits:0']
-
         self.pb_outputs_name = ['vs_multi_gpu/score/logits']
         
-        # inputs/outputs - train
-        self.is_train = is_train
         self.inputs_train_name = ['input_x:0', 'input_y:0']
+        self.outputs_train_name = ['vs_multi_gpu/score/logits:0']
         self.use_metric = True
         
         self.debug_tensors_name = ['vs_multi_gpu/score/logits:0']
