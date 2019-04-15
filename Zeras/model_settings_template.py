@@ -65,9 +65,8 @@ class ModelSettingsTemplate(object):
                                   'dcd_seq:0', 'dcd_seq_mask:0',
                                   'labels_seq:0', 'labels_mask:0']
         self.outputs_train_name = ['logits:0']
-        self.loss_name = 'loss/loss:0'
-        self.metric_name = 'metric/metric:0'
         self.use_metric = True
+        
         self.debug_tensors_name = ['loss/loss_batch:0',
                                    'logits:0',
                                    'logits_normed:0',

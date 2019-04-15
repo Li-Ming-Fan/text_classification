@@ -140,7 +140,7 @@ class DataBatcher(object):
                 #
             except BaseException: # if there is no more example:                
                 if self.single_pass:
-                    print("fill_example_queue(), break loop")
+                    print("fill_example_queue(), single_pass on, data finished, break loop")
                     self._finished_reading = True                    
                     break
                 else:
