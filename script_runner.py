@@ -35,8 +35,6 @@ def parse_args():
     vocab_related = parser.add_argument_group('vocab related settings')
     vocab_related.add_argument('--emb_file', type=str, default = None,
                                help='pretrained embeddings file')
-    vocab_related.add_argument('--filter_cnt', type=int,
-                               default = 2, help='filter tokens')
     vocab_related.add_argument('--tokens_file', type=str,
                                default = './vocab/vocab_tokens.txt',
                                help='tokens file')
@@ -107,9 +105,8 @@ if __name__ == '__main__':
     # 
     vocab = Vocab()
     vocab.add_tokens_from_file(args.tokens_file)
-    vocab.filter_tokens_by_cnt(args.filter_cnt)
-    vocab.emb_dim = settings.emb_dim
     vocab.load_pretrained_embeddings(args.emb_file)
+    vocab.emb_dim = settings.emb_dim
     settings.vocab = vocab
     #       
     if run_mode == 'predict':
