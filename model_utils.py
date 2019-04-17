@@ -23,12 +23,15 @@ def do_eval(model, eval_data):
     count_max = len(data_batches)
     for idx in range(count_max):
         batch = data_batches[idx]
+        batch_size = len(batch[0])
+        #
+        if batch_size != batch_size_eval and model.num_gpu > 1:
+            print("curr batch_size: %d, drop" % batch_size)
+            continue
         #        
         results, loss, metric = model.run_eval_one_batch(batch)
         #
-        batch_size = len(batch[0])
         num_examples += batch_size
-        #
         loss_aver += (loss * batch_size)
         metric_aver += (metric * batch_size)
         #
@@ -56,8 +59,10 @@ def do_train_and_valid(model, data_train, data_valid):
     count = 0
     for epoch in range(model.num_epochs):
         #
+        batch_size = model.batch_size
+        #
         shuffle_seed = Dataset.generate_shuffle_seed()
-        train_batches = Dataset.do_batching_data(data_train, model.batch_size, shuffle_seed)
+        train_batches = Dataset.do_batching_data(data_train, batch_size, shuffle_seed)
         train_batches = Dataset.do_standardizing_batches(train_batches, model.settings)
         #
         batch_idx_max = len(train_batches)
@@ -112,6 +117,12 @@ def do_train_and_valid(model, data_train, data_valid):
             #            
             # train
             batch = train_batches[batch_idx]
+            batch_size_curr = len(batch[0])
+            #
+            if batch_size_curr != batch_size and model.num_gpu > 1:
+                print("curr batch_size: %d, drop" % batch_size_curr)
+                continue
+            #
             count += 1      
             #
             loss = model.run_train_one_batch(batch)

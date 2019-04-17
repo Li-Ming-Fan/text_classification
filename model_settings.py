@@ -36,7 +36,9 @@ class ModelSettings(ModelSettingsTemplate):
         self.emb_tune = 0  # 1 for tune, 0 for not
         
         # train
-        self.gpu_available = "0"
+        self.gpu_available = "0"  # specified in args
+        self.gpu_batch_split = [12, 20]   # list; if None, batch split evenly
+        #
         self.gpu_mem_growth = True
         self.log_device = False
         self.soft_placement = True
@@ -45,7 +47,7 @@ class ModelSettings(ModelSettingsTemplate):
         
         self.num_epochs = 100     
         self.batch_size = 32
-        self.batch_size_eval = 32 
+        self.batch_size_eval = 32
         
         self.reg_lambda = 0.0001  # 0.0, 0.0001
         self.grad_clip = 5.0  # 0.0, 5.0, 8.0, 2.0

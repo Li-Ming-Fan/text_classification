@@ -277,7 +277,7 @@ class ModelWrapper():
     #
     def prepare_for_train_and_valid_multi_gpu(self, dir_ckpt = None):
         
-        num_gpu = self.num_gpu
+        gpu_batch_split = self.gpu_batch_split
 
         # graph
         self._graph = tf.Graph()
@@ -304,10 +304,13 @@ class ModelWrapper():
             # split among gpu
             inputs = []
             labels = []
+            #
             for idx in range(len(input_tensors)):
-                in_split = tf.split(input_tensors[idx], num_gpu)
-                lb_split = tf.split(label_tensors[idx], num_gpu)
+                in_split = tf.split(input_tensors[idx], gpu_batch_split, axis = 0)
                 inputs.append(in_split)
+            #
+            for idx in range(len(label_tensors)):
+                lb_split = tf.split(label_tensors[idx], gpu_batch_split, axis = 0)
                 labels.append(lb_split)
             #
             inputs_split = list(zip(*inputs))
@@ -322,7 +325,7 @@ class ModelWrapper():
             vs_str = self.vs_str_multi_gpu
             vs_prefix = vs_str + "/"
             with tf.variable_scope(vs_str):
-                for gid in range(num_gpu):
+                for gid in range(self.num_gpu):
                     with tf.device("/gpu:%d" % gid), tf.name_scope("bundle_%d" % gid):
                         #
                         output_tensors = self.model_graph.build_inference(self.settings,
@@ -413,11 +416,15 @@ class ModelWrapper():
             
             #
             # loss
-            self._loss_tensor = tf.add_n(loss_list)
+            loss_w = [loss_list[gid] * self.gpu_batch_split[gid]
+                                         for gid in range(self.num_gpu)]
+            self._loss_tensor = tf.add_n(loss_w) / self.batch_size
             #
             # metric
             if self.use_metric:
-                self._metric_tensor = tf.add_n(metric_list) / num_gpu
+                metric_w = [metric_list[gid] * self.gpu_batch_split[gid]
+                                                for gid in range(self.num_gpu)]
+                self._metric_tensor = tf.add_n(metric_w) / self.batch_size
             #
             # output
             outputs_list_z = zip(*outputs_list)
