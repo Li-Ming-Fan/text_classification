@@ -30,24 +30,26 @@ class ModelSettingsTemplate(object):
         # train
         self.gpu_available = "0"      # could be specified in args
         self.gpu_batch_split = None   # list, for example, [12, 20]; if None, batch split evenly
+        #
         self.gpu_mem_growth = True
         self.log_device = False
         self.soft_placement = True
 
         self.num_epochs = 100     
-        self.batch_size = 10
-        self.batch_size_eval = 10
+        self.batch_size = 32
+        self.batch_size_eval = 32
         
-        self.reg_lambda = 0.000001  # 0.0, 0.0001
+        self.reg_lambda = 0.001  # 0.0, 0.01
         self.grad_clip = 8.0  # 0.0, 5.0, 8.0, 2.0
         self.keep_prob = 0.8  # 1.0, 0.7, 0.5
         
-        self.optimizer_type = 'adam'  # adam, momentum, sgd
+        self.optimizer_type = 'adam'  # adam, momentum, sgd, customized
+        self.optimizer_customized = None
         self.momentum = 0.9
-        self.learning_rate_base = 0.001   #
-        self.ratio_decay = 0.9
+        self.learning_rate_base = 0.001   #        
+        self.learning_rate_minimum = 0.000001
+        self.ratio_decay = 0.99
         self.patience_decay = 3000
-        self.learning_rate_minimum = 0.00001
         
         self.save_period_batch = 100
         self.valid_period_batch = 100

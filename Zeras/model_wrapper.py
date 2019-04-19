@@ -140,11 +140,14 @@ class ModelWrapper():
             # optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr, epsilon=1e-6)              
             # optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate, beta1 = MOMENTUM)
             #
-            self._opt = tf.train.AdamOptimizer(learning_rate = self._lr, beta1 = self.momentum)
             if self.optimizer_type == 'momentum':
                 self._opt = tf.train.MomentumOptimizer(self._lr, self.momentum, use_nesterov=True)
             elif self.optimizer_type == 'sgd':
                 self._opt = tf.train.GradientDescentOptimizer(self._lr)
+            elif self.optimizer_type == 'customized':
+                self._opt = self.optimizer_customized(self._lr)
+            else:
+                self._opt = tf.train.AdamOptimizer(learning_rate = self._lr, beta1 = self.momentum)
             #
             # model
             input_tensors, label_tensors = self.model_graph.build_placeholder(self.settings)

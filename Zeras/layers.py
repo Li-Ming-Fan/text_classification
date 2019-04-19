@@ -204,7 +204,7 @@ class MultiHeadAttention():
         else:
             mask_mat_e = tf.expand_dims(mask_mat, 1)
         #
-        out, att = qkv_att_layer(qe, ke, ve, mask_mat_e, keep_prob=1.0)
+        out, att = qkv_att_layer(qe, ke, ve, mask_mat_e, self.keep_prob)
         #
         self.attention = att
         #
