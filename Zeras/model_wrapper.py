@@ -170,14 +170,19 @@ class ModelWrapper():
             #
             self._loss_tensor = loss # self._graph.get_tensor_by_name(self.loss_name)
             #
+            # regularization
+            def is_excluded(v):
+                for item in self.reg_exclusions:
+                    if item in v.name: return True
+                return False
+            #
             if self.reg_lambda > 0.0:
-                loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars
-                                     if 'bias' not in v.name and 'embedding' not in v.name
-                                     and 'layer_norm' not in v.name and 'LayerNorm' not in v.name])
+                loss_reg = tf.add_n( [tf.nn.l2_loss(v) for v in self.trainable_vars
+                                     if not is_excluded(v)] )
                 loss_reg = tf.multiply(loss_reg, self.reg_lambda)
                 self._loss_tensor = tf.add(self._loss_tensor, loss_reg)
             #
-            # train_op
+            # grad_clip, train_op
             self._train_op = None
             if self.grad_clip > 0.0:
                 grads = self._opt.compute_gradients(self._loss_tensor)
@@ -295,11 +300,14 @@ class ModelWrapper():
             # optimizer = tf.train.AdadeltaOptimizer(learning_rate=self.lr, epsilon=1e-6)              
             # optimizer = tf.train.AdamOptimizer(learning_rate = self.learning_rate, beta1 = MOMENTUM)
             #
-            self._opt = tf.train.AdamOptimizer(learning_rate = self._lr, beta1 = self.momentum)
             if self.optimizer_type == 'momentum':
                 self._opt = tf.train.MomentumOptimizer(self._lr, self.momentum, use_nesterov=True)
             elif self.optimizer_type == 'sgd':
-                self._opt = tf.train.GradientDescentOptimizer(self._lr)            
+                self._opt = tf.train.GradientDescentOptimizer(self._lr)
+            elif self.optimizer_type == 'customized':
+                self._opt = self.optimizer_customized(self._lr)
+            else:
+                self._opt = tf.train.AdamOptimizer(learning_rate = self._lr, beta1 = self.momentum)
             #
             # model, placeholder
             input_tensors, label_tensors = self.model_graph.build_placeholder(self.settings)
@@ -354,10 +362,14 @@ class ModelWrapper():
             self._keep_prob = self._graph.get_tensor_by_name(vs_prefix + "keep_prob:0")
             #
             # regularization
+            def is_excluded(v):
+                for item in self.reg_exclusions:
+                    if item in v.name: return True
+                return False
+            #
             if self.reg_lambda > 0.0:
-                loss_reg = tf.add_n([ tf.nn.l2_loss(v) for v in self.trainable_vars
-                                     if 'bias' not in v.name and 'embedding' not in v.name
-                                     and 'layer_norm' not in v.name and 'LayerNorm' not in v.name])
+                loss_reg = tf.add_n( [tf.nn.l2_loss(v) for v in self.trainable_vars
+                                     if not is_excluded(v)] )
                 loss_reg = tf.multiply(loss_reg, self.reg_lambda)
                 grads_reg = self._opt.compute_gradients(loss_reg)
                 #
@@ -373,7 +385,7 @@ class ModelWrapper():
             # grad sum
             grads_summed = ModelWrapper.sum_up_gradients(grads_bundles)
             #            
-            # grad clip
+            # grad_clip
             if self.grad_clip > 0.0:
                 gradients, variables = zip(*grads_summed)
                 grads, _ = tf.clip_by_global_norm(gradients, self.grad_clip)

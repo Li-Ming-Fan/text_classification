@@ -115,7 +115,7 @@ def dense_with_vars(inputs, Wb, transpose_b=False):
     out = tf.reshape(out, out_shape)
     return out
 
-def layer_norm(x, scope=None):
+def layer_norm(x, scope="layer_norm"):
     num_units = tf.shape(x)[-1]
     ln = LayerNorm(num_units, scope=scope)
     return ln(x)
@@ -150,7 +150,7 @@ def qkv_att_layer(query, key, value, mask_mat=None, keep_prob=1.0):
     if mask_mat is not None:
         att_mat = tf.add(att_mat, 1e16 * (mask_mat - 1) )  # -inf   # [B, TQ, TM]
     #
-    logits = tf.nn.softmax(att_mat)
+    logits = tf.nn.softmax(att_mat, -1)
     logits = tf.nn.dropout(logits, keep_prob)
     outputs = tf.matmul(logits, value)   # [B, TQ, DV]
     return outputs, logits
@@ -169,12 +169,11 @@ class MultiHeadAttention():
         
         self.attention = None
         
-        d_model = num_heads * num_units
         with tf.variable_scope(scope):
-            self.dense_query = Dense(d_model, d_model, scope="dense_query")
-            self.dense_key = Dense(d_model, d_model, scope="dense_key")
-            self.dense_value = Dense(d_model, d_model, scope="dense_value")
-            self.dense_trans = Dense(d_model, d_model, scope="dense_trans")
+            self.dense_query = Dense(self.dim_all, self.dim_all, scope="dense_query")
+            self.dense_key = Dense(self.dim_all, self.dim_all, scope="dense_key")
+            self.dense_value = Dense(self.dim_all, self.dim_all, scope="dense_value")
+            self.dense_trans = Dense(self.dim_all, self.dim_all, scope="dense_trans")
             
         
     def __call__(self, query, key, value, mask_mat=None):
@@ -184,9 +183,9 @@ class MultiHeadAttention():
         kd = self.dense_key(key)
         vd = self.dense_value(value)
         #
-        spq = tf.shape(query)
-        batch_size = spq[0]
-        q_len = spq[1]
+        shape_q = tf.shape(query)
+        batch_size = shape_q[0]
+        q_len = shape_q[1]
         k_len = tf.shape(key)[1]
         # v_len = spq[1]
         #
@@ -211,7 +210,7 @@ class MultiHeadAttention():
         
         # concat
         out_c = tf.transpose(out, [0, 2, 1, 3])           # to [B, T, H, D]
-        out_c = tf.reshape(out, [batch_size, q_len, self.dim_all])    
+        out_c = tf.reshape(out, [batch_size, q_len, self.dim_all])
         
         # linear
         out_d = self.dense_trans(out_c)
@@ -237,19 +236,20 @@ class PositionwiseFeedForward():
 class SublayerWrapper():
     """
     """
-    def __init__(self, num_units, keep_prob, sublayer_class, class_args,
+    def __init__(self, sublayer_class, class_args, num_units, keep_prob,
                  scope="sublayer_wrapper"):
         """
         """
         with tf.variable_scope(scope):
-            self.layer_norm = LayerNorm(num_units, scope="sublayer_wrapper")
-            self.dropout = Dropout(keep_prob)
             self.sublayer = sublayer_class(*class_args)
-    
+            self.dropout = Dropout(keep_prob)
+            self.layer_norm = LayerNorm(num_units, scope="sublayer_wrapper")
+
     def __call__(self, x, sublayer_invoker):
-        """
+        """ norm & layer & drop & add
         """
         return x + self.dropout(sublayer_invoker(self.layer_norm(x)))
+        # return self.layer_norm(x + self.dropout(sublayer_invoker(x)))
     
 #
 def get_mask_mat_from_mask_seq(mask_a, mask_b):
@@ -323,6 +323,7 @@ def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model,
     #
     pe_all = np.reshape(pe_all, [max_seq_len, -1])
     pe_all = pe_all[:, 0:posi_emb_dim]
+    
     #
     # tf.Tensor
     pe_mat = tf.get_variable(name, shape = (max_seq_len, posi_emb_dim),
