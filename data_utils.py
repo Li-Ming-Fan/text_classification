@@ -6,17 +6,21 @@ Created on Sat Sep 29 04:11:16 2018
 """
 
 import pickle
+import random
 
-import jieba as segmentor
+import jieba as segmenter
 
+#
+def write_to_file_raw(file_path, data_raw):
+    """
+    """
+    with open(file_path, 'w', encoding = 'utf-8') as fp:     
+        for item in data_raw:
+            fp.write(str(item[1]) + '<label_text_delimiter>' + item[0].strip() + '\n')            
 
-from Zeras.vocab import Vocab
-
-
-
-# task-related
 def load_from_file_raw(file_raw):
-        
+    """
+    """        
     data_raw = []
     with open(file_raw, 'r', encoding = 'utf-8') as fp:
         lines = fp.readlines()
@@ -46,7 +50,7 @@ def load_from_file_raw(file_raw):
 def clean_and_seg_single_text(text):        
     text = text.strip()
     #
-    seg_list = segmentor.cut(text)
+    seg_list = segmenter.cut(text)
     tokens = list(seg_list)
     #
     #print(text)
@@ -84,16 +88,155 @@ def build_vocab_tokens(data_seg, vocab):
     #    
     return vocab
 
+# batch standardized
+def get_batch_std(data_raw, settings):
+    """ data_raw: list of (text, label),
+        returning: data for deep-model input
+    """
+    vocab = settings.vocab
+    min_seq_len = 1
+    max_seq_len = 1000
+    if settings is not None:
+        min_seq_len = settings.min_seq_len
+        max_seq_len = settings.max_seq_len
+    #
+    data_seg = clean_and_seg_list_raw(data_raw)
+    data_c = convert_data_seg_to_ids(data_seg, vocab)
+    data_e = transfer_to_data_examples(data_c)
+    #
+    if len(data_e) == 0: return []
+    #
+    x, y = list(zip(*data_e))
+    x_std, x_len = standardize_list_seqs(x, min_seq_len, max_seq_len)
+    #
+    return (x_std, y)
+
 #
-# statistics
-def do_data_statistics(data_examples, label_posi, num_classes):
+# task-agnostic
+def standardize_list_seqs(x, min_seq_len=5, max_seq_len=100):
+    """ x: list of seqs
+    """
+    x_padded = []
+    x_len = []
+    padded_len = max(min_seq_len, max([len(item) for item in x]))
+    padded_len = min(max_seq_len, padded_len)
+    for item in x:
+        l = len(item)
+        d = padded_len - l
+        item_n = item.copy()
+        if d > 0:
+            item_n.extend([0] * d)  # pad_id, 0
+        elif d < 0:
+            item_n = item_n[0:max_seq_len]
+            l = max_seq_len
+        #
+        x_padded.append(item_n)
+        x_len.append(l)
+        
+    return x_padded, x_len
     
+#
+def generate_shuffle_seed(num_max = 10000000):
+    return random.randint(1, num_max)
+
+def split_train_and_test(data_examples, ratio_split = 0.9, shuffle_seed = None):
+    """
+    """           
+    num_examples = len(data_examples)
+    #
+    print('split train and test ...')
+    print('num_examples: %d' % num_examples)
+    #
+    if shuffle_seed is not None:
+        random.shuffle(data_examples, random.seed(shuffle_seed))
+    #
+    num_train = int(num_examples * ratio_split)
+    
+    train_data = data_examples[0:num_train]
+    test_data = data_examples[num_train:]
+    
+    return (train_data, test_data)
+
+def do_data_statistics(data_examples, label_posi, num_classes):
+    """
+    """    
     count = [0] * num_classes
     for example in data_examples:        
         label = example[label_posi]      
         count[label] += 1
         
     return count
+
+def do_balancing_classes(data_examples, label_posi, num_classes, num_oversamples = None):
+    """
+    """            
+    data_all = [[] for idx in range(num_classes)]
+    for example in data_examples:
+        label = example[label_posi]
+        # print(label)
+        if label >= num_classes:
+            print('label >= num_classes when do_balancing_classes()')
+        #
+        data_all[label].append(example)
+        #
+    #
+    num_list = [len(item) for item in data_all]
+    num_max = max(num_list)
+    #
+    if num_oversamples is None:
+        num_oversamples = [num_max] * num_classes
+    #
+    for idx in range(num_classes):
+        while True:
+            len_data = len(data_all[idx])
+            d = num_oversamples[idx] - len_data
+            if d >= len_data:
+                data_all[idx].extend(data_all[idx])
+            elif d > 0:
+                data_all[idx].extend(data_all[idx][0:d])
+            else:
+                break
+            #
+        #
+        print('oversampled class %d' % idx)
+        #
+    #
+    data_examples = []
+    for idx in range(num_classes):
+        data_examples.extend(data_all[idx])
+    #
+    return data_examples
+    #
+    
+def do_batching_data(data_examples, batch_size, shuffle_seed = None):
+    """
+    """        
+    num_all = len(data_examples)
+    
+    if shuffle_seed is not None:
+        random.shuffle(data_examples, random.seed(shuffle_seed))
+    
+    #
+    num_batches = num_all // batch_size
+    
+    batches = []
+    start_id = 0
+    end_id = batch_size
+    for i in range(num_batches):        
+        batches.append( data_examples[start_id:end_id] )
+        start_id = end_id
+        end_id += batch_size
+    
+    if num_batches * batch_size < num_all:
+        num_batches += 1
+        data = data_examples[start_id:]
+        #
+        # d = batch_size - len(data)
+        # data.extend( data_examples[0:d] )
+        #
+        batches.append( data )
+    
+    return batches 
 
 #
 def segment_sentences(text, delimiters = None):
@@ -165,8 +308,6 @@ def load_data_from_pkl(file_path):
         data = pickle.load(fp)
     return data
 
-    
-    
 #
 if __name__ == '__main__':
     

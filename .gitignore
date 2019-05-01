@@ -4,3 +4,4 @@ data_examples/
 vocab/
 log/
 model_*/
+temp*

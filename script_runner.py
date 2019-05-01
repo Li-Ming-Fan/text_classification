@@ -2,13 +2,10 @@
 
 import os
 
-from data_set import Dataset
+from Zeras.vocab import Vocab
+
 from model_settings import ModelSettings
 import model_utils
-
-
-from Zeras.vocab import Vocab
-from Zeras.model_wrapper import ModelWrapper
 
 
 import argparse
@@ -18,7 +15,7 @@ def parse_args():
     Parses command line arguments.
     """
     parser = argparse.ArgumentParser('sentence-cls')
-    parser.add_argument('--mode', choices=['train', 'eval', 'debug', 'predict'],
+    parser.add_argument('--mode', choices=['train', 'eval', 'convert', 'predict'],
                         default = 'train', help = 'run mode')
     #
     parser.add_argument('--gpu', type=str, default = '0',
@@ -26,24 +23,18 @@ def parse_args():
     parser.add_argument('--note', type=str, default = 'note_something',
                         help = 'make some useful notes')
     #
+    parser.add_argument('--ckpt_loading', choices=['best', 'latest'],
+                        default = 'best', help='lastest ckpt or best')
+    #
     model_related = parser.add_argument_group('model related settings')    
-    model_related.add_argument('--base_dir', type=str, default = './',
-                               help='base directory for saving results')
     model_related.add_argument('--model_tag', type=str,
                                default = 'cnn', help='model_tag')
-    #
-    vocab_related = parser.add_argument_group('vocab related settings')
-    vocab_related.add_argument('--emb_file', type=str, default = None,
-                               help='pretrained embeddings file')
-    vocab_related.add_argument('--tokens_file', type=str,
-                               default = './vocab/vocab_tokens.txt',
-                               help='tokens file')
     #
     data_related = parser.add_argument_group('data related settings')
     data_related.add_argument('--dir_examples', type=str,
                               default = './data_examples',
                               help = 'dir_examples')
-    data_related.add_argument('--data', choices=['train', 'valid', 'test', 'all'],
+    data_related.add_argument('--data', choices=['train', 'valid', 'test'],
                               default = 'test', help = 'run mode')
     
     
@@ -97,86 +88,42 @@ if __name__ == '__main__':
     else:
         assert False, "NOT supported model_tag"
     #
-    # settings and vocab
+    # settings
     settings = ModelSettings()
-    settings.model_tag = model_tag
-    settings.model_graph = ModelGraph
     settings.gpu_available = args.gpu
-    # 
-    vocab = Vocab()
-    vocab.add_tokens_from_file(args.tokens_file)
-    vocab.load_pretrained_embeddings(args.emb_file)
-    vocab.emb_dim = settings.emb_dim
-    settings.vocab = vocab
-    #       
+    settings.model_tag = model_tag
+    #    
     if run_mode == 'predict':
         settings.is_train = False
     else:
         settings.is_train = True
     #
-    settings.base_dir = args.base_dir
     settings.check_settings()
     settings.create_or_reset_log_file()
     settings.logger.info('running with args : {}'.format(args))
     settings.logger.info(settings.trans_info_to_dict())
+    settings.save_to_json_file("./temp_settings.json")
     #
-    # model
-    model = ModelWrapper(settings)
+    # vocab
+    vocab = Vocab()    
+    vocab.add_tokens_from_file(settings.tokens_file)
+    vocab.load_pretrained_embeddings(settings.emb_file)
+    vocab.emb_dim = settings.emb_dim
+    #
+    # model & vocab
+    settings.model_graph = ModelGraph
+    settings.vocab = vocab
     #
     # run
-    #
-    if run_mode == 'predict':
-        model.prepare_for_prediction()
-    else:
-        model.prepare_for_train_and_valid()
-    #
     if run_mode == 'train':
-        # data
-        dataset = Dataset()
-        dataset.load_data_examples(file_data_train)
-        data_train = dataset.data_examples
-        #
-        dataset = Dataset()
-        dataset.load_data_examples(file_data_valid)
-        data_valid = dataset.data_examples
-        #
-        model_utils.do_train_and_valid(model, data_train, data_valid)
-        #
+        model_utils.do_train_and_valid(settings, args)
     elif run_mode == 'eval':
-        # data
-        dataset = Dataset()
-        dataset.load_data_examples(file_data_pkl)
-        data_eval = dataset.data_examples
-        #
-        model.assign_dropout_keep_prob(1.0)
-        eval_score, loss_aver, metric_val = model_utils.do_eval(model, data_eval)
-        model.logger.info("eval finished with loss_aver, metric: %g, %g" % (loss_aver, metric_val) )
-        print("eval finished with loss_aver, metric: %g, %g" % (loss_aver, metric_val) )
-        #
-    elif run_mode == 'debug':
-        # data
-        dataset = Dataset()
-        dataset.load_data_examples(file_data_pkl)
-        data_eval = dataset.data_examples
-        #
-        model_utils.do_debug(model, data_eval)
-        #
+        model_utils.do_eval(settings, args)
     elif run_mode == 'predict':
-        # data
-        dataset = Dataset()
-        dataset.load_data_examples(file_data_pkl)
-        data_predict = dataset.data_examples
-        #
-        report = model_utils.do_predict(model, data_predict)
-        model.logger.info('prediction results: {}'.format(report))
-        print('prediction results: {}'.format(report))
-        #
+        model_utils.do_predict(settings, args)
+    elif run_mode == 'convert':
+        model_utils.do_convert(settings, args)
     else:
-        print('NOT supported mode. supported modes: [train|eval|debug|predict]')
+        print('NOT supported mode. supported modes: train, eval, convert and predict.')
     #
-    settings.logger.info("task finished")
-    settings.close_logger()
-    print("task finished")  
-    #
-    
     

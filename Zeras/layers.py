@@ -5,59 +5,9 @@ Created on Sat Sep  1 17:14:19 2018
 @author: limingfan
 """
 
-import numpy as np
 import tensorflow as tf
 
 
-class Dense():
-    """
-    """
-    def __init__(self, input_size, output_size, weight_mat=None,
-                 use_bias=True, bias_init_value=0.0, scope="dense"):
-        """
-        """
-        wb = create_dense_vars(input_size, output_size,
-                               weight_mat=weight_mat, use_bias=use_bias,
-                               bias_init_value=bias_init_value, scope=scope)
-        #
-        self.wb = wb
-    
-    def __call__(self, inputs, transpose_b=False):
-        """
-        """
-        out = dense_with_vars(inputs, self.wb, transpose_b=transpose_b)
-        return out
-
-class LayerNorm():
-    """
-    """
-    def __init__(self, num_units, epsilon=1e-6, scope="layer_norm"):
-        """
-        """
-        with tf.variable_scope(scope):
-            self.beta = tf.get_variable('layer_norm_beta', [num_units],
-                                        initializer=tf.ones_initializer(),
-                                        trainable=True)
-            self.gamma = tf.get_variable('layer_norm_gamma', [num_units],
-                                         initializer=tf.zeros_initializer(),
-                                         trainable=True)
-            self.eps = epsilon
-    
-    def __call__(self, x):
-        """
-        """
-        mean, std = tf.nn.moments(x, [-1], keep_dims=True, name='moments')        
-        return self.beta * (x - mean)/ (std + self.eps) + self.gamma
-    
-class Dropout():
-    """
-    """
-    def __init__(self, keep_prob):
-        self.keep_prob = keep_prob
-        
-    def __call__(self, x):        
-        return tf.nn.dropout(x, self.keep_prob)
-    
 #
 def dense_with_w(inputs, hidden, weights, transpose_b=False):
     """
@@ -115,6 +65,57 @@ def dense_with_vars(inputs, Wb, transpose_b=False):
     out = tf.reshape(out, out_shape)
     return out
 
+#
+class Dense():
+    """
+    """
+    def __init__(self, input_size, output_size, weight_mat=None,
+                 use_bias=True, bias_init_value=0.0, scope="dense"):
+        """
+        """
+        wb = create_dense_vars(input_size, output_size,
+                               weight_mat=weight_mat, use_bias=use_bias,
+                               bias_init_value=bias_init_value, scope=scope)
+        #
+        self.wb = wb
+    
+    def __call__(self, inputs, transpose_b=False):
+        """
+        """
+        out = dense_with_vars(inputs, self.wb, transpose_b=transpose_b)
+        return out
+
+class LayerNorm():
+    """
+    """
+    def __init__(self, num_units, epsilon=1e-6, scope="layer_norm"):
+        """
+        """
+        with tf.variable_scope(scope):
+            self.beta = tf.get_variable('layer_norm_beta', [num_units],
+                                        initializer=tf.ones_initializer(),
+                                        trainable=True)
+            self.gamma = tf.get_variable('layer_norm_gamma', [num_units],
+                                         initializer=tf.zeros_initializer(),
+                                         trainable=True)
+            self.eps = epsilon
+    
+    def __call__(self, x):
+        """
+        """
+        mean, std = tf.nn.moments(x, [-1], keep_dims=True, name='moments')        
+        return self.beta * (x - mean)/ (std + self.eps) + self.gamma
+    
+class Dropout():
+    """
+    """
+    def __init__(self, keep_prob):
+        self.keep_prob = keep_prob
+        
+    def __call__(self, x):        
+        return tf.nn.dropout(x, self.keep_prob)
+    
+#
 def layer_norm(x, scope="layer_norm"):
     num_units = tf.shape(x)[-1]
     ln = LayerNorm(num_units, scope=scope)
@@ -246,104 +247,8 @@ class SublayerWrapper():
             self.layer_norm = LayerNorm(num_units, scope="sublayer_wrapper")
 
     def __call__(self, x, sublayer_invoker):
-        """ norm & layer & drop & add
+        """ layer & drop & add & norm
         """
-        return x + self.dropout(sublayer_invoker(self.layer_norm(x)))
-        # return self.layer_norm(x + self.dropout(sublayer_invoker(x)))
+        # return x + self.dropout(sublayer_invoker(self.layer_norm(x)))
+        return self.layer_norm(x + self.dropout(sublayer_invoker(x)))
     
-#
-def get_mask_mat_from_mask_seq(mask_a, mask_b):
-    """ mask_a: [B, TA]
-    """
-    mask_ae = tf.cast(tf.expand_dims(mask_a, 2), tf.float32)  # [B, TA, 1]
-    mask_be = tf.cast(tf.expand_dims(mask_b, 1), tf.float32)  # [B, 1, TB]
-    mask = mask_ae * mask_be    # [B, TA, TB]
-    return mask
-
-#
-def get_mask_mat_subsequent(size, name="mask_subsequent"):
-    """ subsequent mask
-    """
-    
-    """
-    mask_mat = np.zeros((1, size, size), dtype = np.float32)
-    for idx in range(size):
-        for idy in range(size):
-            if idx <= idy: mask_mat[0, idx, idy] = 1.0
-    #
-    mask_tensor = tf.get_variable(name, shape = (1, size, size),
-                                  initializer = tf.constant_initializer(mask_mat),
-                                  trainable = False)
-    """
-    #
-    mask_tensor = tf.constant(1.0, shape = (1, size, size), dtype=tf.float32)
-    mask_tensor = tf.linalg.band_part(mask_tensor,
-                                      num_lower = -1,
-                                      num_upper = 0,
-                                      name = name)
-    return mask_tensor
-
-def get_list_subs_masks(max_len, name="subs_mask"):
-    """ subsequent masks
-    """    
-    list_masks = []
-    for step in range(max_len):
-        subs_mask = get_mask_mat_subsequent(step+1, name = name+"_%d" % step)
-        list_masks.append(subs_mask)
-    return list_masks
-
-def get_list_dcd_crs_masks(src_mask_seq, max_len):
-    """ decoder cross masks
-    """    
-    list_masks = []
-    mask_be = tf.cast(tf.expand_dims(src_mask_seq, 1), tf.float32)  # [B, 1, TB]
-    for step in range(max_len):        
-        crs_mask = tf.tile(mask_be, [1, step+1, 1])
-        list_masks.append(crs_mask)
-    return list_masks
-    
-#
-def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model,
-                         name="position_embeddings"):
-    """
-    """
-    d_model_recip_2 = 2.0 / posi_emb_model
-    
-    arg_mat = np.zeros((max_seq_len, posi_emb_dim), dtype=np.float32)
-    for idx in range(max_seq_len):
-        for idm in range(posi_emb_dim):
-            arg_mat[idx, idm] = idx * 1e-4**(d_model_recip_2 * idm)
-    #
-    pe_sin = np.sin(arg_mat)
-    pe_cos = np.cos(arg_mat)
-    #    
-    pe_sin = np.expand_dims(pe_sin, -1)  
-    pe_cos = np.expand_dims(pe_cos, -1)
-    pe_all = np.concatenate([pe_sin, pe_cos], -1)  # (T, D, 2)
-    #
-    pe_all = np.reshape(pe_all, [max_seq_len, -1])
-    pe_all = pe_all[:, 0:posi_emb_dim]
-    
-    #
-    # tf.Tensor
-    pe_mat = tf.get_variable(name, shape = (max_seq_len, posi_emb_dim),
-                             initializer = tf.constant_initializer(pe_all),
-                             trainable = False)
-        
-    return pe_mat
-
-def get_emb_positioned(x, token_emb, position_emb):
-    """ x: [None, None]
-    """
-    posi = tf.range(tf.shape(x)[-1])
-    
-    seq_emb_t = tf.nn.embedding_lookup(token_emb, x)
-    seq_emb_p = tf.nn.embedding_lookup(position_emb, posi)
-    
-    return seq_emb_t + seq_emb_p
-
-#
-def gelu(x):
-    cdf = 0.5 * (1.0 + tf.tanh((0.79788456 * (x + 0.044715 * tf.pow(x, 3)) )))
-    return x * cdf
-

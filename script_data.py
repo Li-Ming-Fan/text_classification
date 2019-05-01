@@ -12,24 +12,33 @@ import os
 import random
 # random.shuffle(list_ori, random.seed(10))
 
-from data_set import Dataset
 import data_utils
+from Zeras.vocab import Vocab
 
+"""
+build vocabulary
+
+split data_raw
+
+"""
     
 if __name__ == '__main__':
     
-    list_files = ['./data_raw/data_raw.txt']
-
     #
-    dir_base = './'
-    dir_examples = './data_examples'
+    list_files = ['./data_raw/data_raw.txt']
     
-    if not os.path.exists(dir_base): os.mkdir(dir_base)
+    #
+    dir_examples = "./data_examples" 
     if not os.path.exists(dir_examples): os.mkdir(dir_examples)
+    #
     
-    dir_vocab = './vocab'
+    #
+    dir_vocab = "./vocab" 
+    if not os.path.exists(dir_vocab): os.mkdir(dir_vocab)
+    #
     vocab_filter_cnt = 2
-    # emb_dim = 64
+    vocab_tokens_file = os.path.join(dir_vocab, "vocab_tokens.txt")
+    #
     
     #
     num_classes = 2
@@ -37,43 +46,32 @@ if __name__ == '__main__':
     #
     
     #
-    dataset = Dataset(dir_examples, dir_vocab)
-    dataset.vocab_filter_cnt = vocab_filter_cnt
-    # dataset.emb_dim = emb_dim    
+    # data_raw
+    data_raw = []
+    for file_path in list_files:
+        data_curr = data_utils.load_from_file_raw(file_path)
+        data_raw.extend(data_curr)
     #
-    dataset.list_files = list_files
+    # data_seg
+    data_seg = data_utils.clean_and_seg_list_raw(data_raw)
     #
-    
-    #
-    # prepare
-    dataset.prepare_data_examples(load_vocab = False)
-    #
-    dataset.save_vocab_tokens()             # save or NOT
-    dataset.save_data_examples()            # save or NOT
-    #
-    print('prepared')
-    #
-    # test load
-    dataset.load_vocab_tokens()  
-    dataset.load_data_examples()
-    print('loaded')
-    #
-    
+    # vocab
+    vocab = Vocab()
+    vocab = data_utils.build_vocab_tokens(data_seg, vocab)
+    vocab.filter_tokens_by_cnt(vocab_filter_cnt)
+    vocab.save_tokens_to_file(vocab_tokens_file)
     #
     # split
-    data_examples = dataset.data_examples
-    random.shuffle(data_examples)
-    #
-    data_train, data_test = Dataset.split_train_and_test(data_examples,
-                                                         ratio_split = 0.9)
-    data_train, data_valid = Dataset.split_train_and_test(data_train,
-                                                          ratio_split = 0.9)
+    data_train, data_test = data_utils.split_train_and_test(data_raw,
+                                                            ratio_split = 0.9)
+    data_train, data_valid = data_utils.split_train_and_test(data_train,
+                                                             ratio_split = 0.9)
     #
     print()
     print('num_train: %d' % len(data_train))
     print('num_valid: %d' % len(data_valid))
     print('num_test: %d' % len(data_test))
-    print('num_all: %d' % len(data_examples))
+    print('num_all: %d' % len(data_raw))
     print()
     #
     c_train = data_utils.do_data_statistics(data_train, label_posi, num_classes)
@@ -85,7 +83,7 @@ if __name__ == '__main__':
     c_test = data_utils.do_data_statistics(data_test, label_posi, num_classes)
     print('num test: ')
     print(c_test)
-    c_all = data_utils.do_data_statistics(data_examples, label_posi, num_classes)
+    c_all = data_utils.do_data_statistics(data_raw, label_posi, num_classes)
     print('num all: ')
     print(c_all)
     print()
@@ -102,46 +100,28 @@ if __name__ == '__main__':
     #
     # dataset.save_data_examples()          # save or NOT
     #
-    file_path = os.path.join(dir_examples, 'data_examples_train.pkl')
-    dataset.data_examples = data_train
-    dataset.save_data_examples(file_path)          # save or NOT
+    file_path = os.path.join(dir_examples, 'data_examples_train.txt')
+    data_utils.write_to_file_raw(file_path, data_train)
     #
-    file_path = os.path.join(dir_examples, 'data_examples_valid.pkl')
-    dataset.data_examples = data_valid
-    dataset.save_data_examples(file_path)          # save or NOT
+    file_path = os.path.join(dir_examples, 'data_examples_valid.txt')
+    data_utils.write_to_file_raw(file_path, data_valid)
     #
-    file_path = os.path.join(dir_examples, 'data_examples_test.pkl')
-    dataset.data_examples = data_test
-    dataset.save_data_examples(file_path)          # save or NOT
+    file_path = os.path.join(dir_examples, 'data_examples_test.txt')
+    data_utils.write_to_file_raw(file_path, data_test)
     #
     print('prepared')
     print()
     
-
     #
+    # test batching
     from collections import namedtuple
     Settings = namedtuple('Settings', ['vocab',
                                        'min_seq_len',
                                        'max_seq_len'])
-    settings = Settings(dataset.vocab, 5, 1000)
+    settings = Settings(vocab, 5, 1000)
     #
-    # test batching
+    batch_std = data_utils.get_batch_std(data_train[0:3], settings)
+    print(batch_std)
     #
-    # train_batches = Dataset.do_batching_data(data_train, 32)
-    test_batches = Dataset.do_batching_data(data_valid, 32)
-    #
-    # train_batches_padded = Dataset.do_standardizing_batches(train_batches, settings)
-    test_batches_padded = Dataset.do_standardizing_batches(test_batches, settings)
-    print('batched')
-    #
-    # test for prediction
-    dataset.load_data_raw()
-    data_raw = dataset.data_raw
-    #
-    num_examples = len(data_raw)
-    data_raw = data_raw[0:min(10, num_examples)]
-    #
-    data_pred = Dataset.preprocess_for_prediction(data_raw, settings)
-    print('test for pred')
-    #
-
+    
+    
