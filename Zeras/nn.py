@@ -31,7 +31,7 @@ def get_mask_mat_subsequent(size, name="mask_subsequent"):
     
 #
 def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model,
-                         name="position_embeddings"):
+                         trainable = False, name="position_embeddings"):
     """
     """
     d_model_recip_2 = 2.0 / posi_emb_model
@@ -55,7 +55,7 @@ def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model,
     # tf.Tensor
     pe_mat = tf.get_variable(name, shape = (max_seq_len, posi_emb_dim),
                              initializer = tf.constant_initializer(pe_all),
-                             trainable = False)
+                             trainable = trainable)
         
     return pe_mat
 
@@ -82,3 +82,19 @@ def get_label_smoothened(onehot_label, num_classes, delta):
     return new_label
     
 #
+def get_shape_list(tensor):
+    """
+    """    
+    shape = tensor.shape.as_list()
+    
+    non_static_indexes = []
+    for (index, dim) in enumerate(shape):
+        if dim is None: non_static_indexes.append(index)
+        
+    if not non_static_indexes: return shape
+    
+    dyn_shape = tf.shape(tensor)
+    for index in non_static_indexes:
+        shape[index] = dyn_shape[index]
+    return shape
+

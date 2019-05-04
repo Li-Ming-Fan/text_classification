@@ -6,6 +6,7 @@ Created on Sat Sep  1 17:14:19 2018
 """
 
 import tensorflow as tf
+# from tensorflow.python.ops import array_ops
 
 
 #
@@ -117,9 +118,13 @@ class Dropout():
     
 #
 def layer_norm(x, scope="layer_norm"):
-    num_units = tf.shape(x)[-1]
+    num_units = x.shape.as_list()[-1]
     ln = LayerNorm(num_units, scope=scope)
     return ln(x)
+
+def dropout(x, keep_prob):
+    drop_layer = Dropout(keep_prob)
+    return drop_layer(x)
     
 # 
 def build_module_copies(module_class, class_args, N, scope="module_copies"):
@@ -156,6 +161,61 @@ def qkv_att_layer(query, key, value, mask_mat=None, keep_prob=1.0):
     outputs = tf.matmul(logits, value)   # [B, TQ, DV]
     return outputs, logits
 
+
+def multihead_attention_layer(num_heads, num_units,
+                              query, key, value, mask_mat=None,
+                              keep_prob=1.0):
+    """
+    """
+    dim_all = num_heads * num_units
+    
+    qd = tf.layers.dense(query, dim_all, name="qd")
+    kd = tf.layers.dense(key, dim_all, name="kd")
+    vd = tf.layers.dense(value, dim_all, name="vd")
+    
+    """
+    qs = array_ops.split(value = qd, num_or_size_splits = num_heads, axis = -1)
+    ks = array_ops.split(value = kd, num_or_size_splits = num_heads, axis = -1)
+    vs = array_ops.split(value = vd, num_or_size_splits = num_heads, axis = -1)
+    
+    # to [B, H, T, D]
+    qe = tf.concat([tf.expand_dims(item, 1) for item in qs], 1)
+    ke = tf.concat([tf.expand_dims(item, 1) for item in ks], 1)
+    ve = tf.concat([tf.expand_dims(item, 1) for item in vs], 1)
+    
+    """
+    
+    spq = tf.shape(query)
+    batch_size = spq[0]
+    time_len = spq[1]
+    qs = tf.reshape(qd, [batch_size, time_len, num_heads, num_units])
+    ks = tf.reshape(kd, [batch_size, time_len, num_heads, num_units])
+    vs = tf.reshape(vd, [batch_size, time_len, num_heads, num_units])
+    
+    qe = tf.transpose(qs, [0, 2, 1, 3])   # to [B, H, T, D]
+    ke = tf.transpose(ks, [0, 2, 1, 3])
+    ve = tf.transpose(vs, [0, 2, 1, 3])
+
+    # qkv
+    if mask_mat is None:
+        mask_mat_e = None
+    else:
+        mask_mat_e = tf.expand_dims(mask_mat, 1)
+    #
+    out, att = qkv_att_layer(qe, ke, ve, mask_mat_e, keep_prob)
+    #
+    
+    # concat
+    # out_list = [ out[:,idx,:,:] for idx in range(num_heads) ]
+    # out_c = tf.concat(out_list, -1)
+    
+    out_c = tf.transpose(out, [0, 2, 1, 3])           # to [B, T, H, D]
+    out_c = tf.reshape(out, [batch_size, time_len, dim_all])
+    
+    # linear
+    out_d = tf.layers.dense(out_c, dim_all, name="out_d")
+    return out_d
+
 #
 class MultiHeadAttention():
     """
@@ -184,6 +244,7 @@ class MultiHeadAttention():
         kd = self.dense_key(key)
         vd = self.dense_value(value)
         #
+        
         shape_q = tf.shape(query)
         batch_size = shape_q[0]
         q_len = shape_q[1]
@@ -197,6 +258,19 @@ class MultiHeadAttention():
         qe = tf.transpose(qs, [0, 2, 1, 3])   # to [B, H, T, D]
         ke = tf.transpose(ks, [0, 2, 1, 3])
         ve = tf.transpose(vs, [0, 2, 1, 3])
+        
+        """
+        
+        qs = array_ops.split(value = qd, num_or_size_splits = self.num_heads, axis = -1)
+        ks = array_ops.split(value = kd, num_or_size_splits = self.num_heads, axis = -1)
+        vs = array_ops.split(value = vd, num_or_size_splits = self.num_heads, axis = -1)
+        
+        # to [B, H, T, D]
+        qe = tf.concat([tf.expand_dims(item, 1) for item in qs], 1)
+        ke = tf.concat([tf.expand_dims(item, 1) for item in ks], 1)
+        ve = tf.concat([tf.expand_dims(item, 1) for item in vs], 1)
+        
+        """
     
         # qkv
         if mask_mat is None:
@@ -213,10 +287,14 @@ class MultiHeadAttention():
         out_c = tf.transpose(out, [0, 2, 1, 3])           # to [B, T, H, D]
         out_c = tf.reshape(out, [batch_size, q_len, self.dim_all])
         
+        # out_list = [ out[:,idx,:,:] for idx in range(self.num_heads) ]
+        # out_c = tf.concat(out_list, -1)
+        
         # linear
         out_d = self.dense_trans(out_c)
         return out_d
-    
+
+ 
 class PositionwiseFeedForward():
     """
     """
@@ -251,4 +329,8 @@ class SublayerWrapper():
         """
         # return x + self.dropout(sublayer_invoker(self.layer_norm(x)))
         return self.layer_norm(x + self.dropout(sublayer_invoker(x)))
+    
+#
+
+    
     
