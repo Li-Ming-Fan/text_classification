@@ -126,4 +126,8 @@ if __name__ == '__main__':
     else:
         print('NOT supported mode. supported modes: train, eval, convert and predict.')
     #
+    settings.logger.info("task finished")
+    settings.close_logger()
+    print("task finished")
+    #
     
