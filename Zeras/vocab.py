@@ -6,7 +6,8 @@ import io
 
 
 class Vocab(object):
-    
+    """
+    """    
     pad_token = '[pad]'
     unk_token = '[unk]'
     start_token = '[start]'
@@ -164,20 +165,21 @@ class Vocab(object):
         #for token in [self.pad_token, self.unk_token]:
         #for token in [self.pad_token]: self.embeddings[self.get_id(token)] = np.zeros([self.emb_dim])
         
-    def load_pretrained_embeddings(self, emb_path, load_existing = True):
+    def load_pretrained_embeddings(self, emb_path, load_all = False):
         #
         if emb_path is None:
             self.randomly_init_embeddings(self.emb_dim)
             return
         #
         if emb_path.endswith('bin'):
-            self._load_pretrained_embeddings_bin(emb_path, load_existing)
+            self._load_pretrained_embeddings_bin(emb_path, load_all)
         elif emb_path.endswith('txt'):
-            self._load_pretrained_embeddings_txt(emb_path, load_existing)
+            self._load_pretrained_embeddings_txt(emb_path, load_all)
         #
         
-    def _load_pretrained_embeddings_bin(self, emb_path, load_existing = True):
-
+    def _load_pretrained_embeddings_bin(self, emb_path, load_all):
+        """
+        """
         num_tokens = 0
         emb_dim = 0
         trained_embeddings = {}
@@ -208,12 +210,16 @@ class Vocab(object):
                     count += 1
                     b, = struct.unpack('b', fp.read(1))
                 #
-                fp.seek(-count-1, io.SEEK_CUR)
-                data = fp.read(count)
-                token = data.decode('utf-8')
-                # print(data)
-                # print(token)
-                fp.read(1)
+                if count > 0:
+                    fp.seek(-count-1, io.SEEK_CUR)
+                    data = fp.read(count)
+                    token = data.decode('utf-8')
+                    # print(data)
+                    # print(token)
+                    fp.read(1)
+                else:
+                    token = ' '
+                    fp.read(1)
                 #
                 emb_list = []
                 for d in range(emb_dim):
@@ -227,10 +233,13 @@ class Vocab(object):
         #
         self.emb_dim = emb_dim
         #
-        # rebuild the token x id map
+        if load_all:
+            for token in trained_embeddings.keys():
+                self.add(token)
         #
         # initiate embeddings
-        self.embeddings = np.random.rand(self.size(), self.emb_dim)
+        self.randomly_init_embeddings(self.emb_dim)
+        # self.embeddings = np.random.rand(self.size(), self.emb_dim)
         # for token in [self.pad_token]: self.embeddings[self.get_id(token)] = np.zeros([self.emb_dim])
         # self.embeddings = np.zeros([self.size(), self.emb_dim])
         #
@@ -238,38 +247,43 @@ class Vocab(object):
         for token in self.dict_token2id.keys():
             if token in trained_embeddings:
                 self.embeddings[self.get_id(token)] = trained_embeddings[token]
+        #
     
-    def _load_pretrained_embeddings_txt(self, emb_path, load_existing = True):
+    def _load_pretrained_embeddings_txt(self, emb_path, load_all):
+        """
+        """        
+        with open(emb_path, 'r', encoding='utf-8') as fin:
+            lines = fin.readlines()
         #
         trained_embeddings = {}
-        with open(emb_path, 'r', encoding='utf-8') as fin:
-            for line in fin:
-                contents = line.strip().split()
-                #
-                if len(contents) < 3: continue  #
-                #
-                if line.startswith(' '):
-                    token = ' '
-                    trained_embeddings[token] = list(map(float, contents[0:]))
-                    continue
-                #                
-                token = contents[0]
-                # print(token)
-                #
-                if load_existing and token not in self.dict_token2id:
-                    continue  # only existing tokens
-                #
-                trained_embeddings[token] = list(map(float, contents[1:]))
-                #
+        for line in lines:
+            contents = line.strip().split()
+            #
+            if len(contents) < 3: continue  #
+            #
+            if line.startswith(' '):
+                token = ' '
+                trained_embeddings[token] = list(map(float, contents[0:]))
+                continue
+            #                
+            token = contents[0]
+            # print(token)
+            #
+            trained_embeddings[token] = list(map(float, contents[1:]))
+            #
         #
-        trained_tokens = list(trained_embeddings.keys() )
-        #if self.emb_dim is None:
-        self.emb_dim = len(trained_embeddings[trained_tokens[0]])
+        for token in trained_embeddings.keys():
+            emb = trained_embeddings[token]
+            self.emb_dim = len(emb)
+            break
         #
-        # rebuild the token x id map
+        if load_all:
+            for token in trained_embeddings.keys():
+                self.add(token)
         #
         # initiate embeddings
-        self.embeddings = np.random.rand(self.size(), self.emb_dim)
+        self.randomly_init_embeddings(self.emb_dim)
+        # self.embeddings = np.random.rand(self.size(), self.emb_dim)
         # for token in [self.pad_token]: self.embeddings[self.get_id(token)] = np.zeros([self.emb_dim])
         # self.embeddings = np.zeros([self.size(), self.emb_dim])
         #
@@ -277,6 +291,7 @@ class Vocab(object):
         for token in self.dict_token2id.keys():
             if token in trained_embeddings:
                 self.embeddings[self.get_id(token)] = trained_embeddings[token]
+        #
                 
     def save_embeddings_to_file(self, emb_path):
         #
@@ -287,10 +302,10 @@ class Vocab(object):
         #
         
     def _save_embeddings_to_file_bin(self, emb_path):
-        
+        """
+        """        
         num_words_str = str(self.size()) + ' '
         emb_dim_str = str(self.emb_dim) + '\n'
-        
         with open(emb_path, 'wb') as fp:
             #
             fp.write(num_words_str.encode('utf-8'))  # str to bytes
@@ -344,54 +359,102 @@ if __name__ == '__main__':
     
     vocab = Vocab()
     
-    vocab.add_tokens_from_file('./vocab/vocab_tokens.txt')
+    vocab.add_tokens_from_file('../vocab/vocab_tokens.txt')
     print('tokens loaded from vocab_tokens.txt')
     print(vocab.size())
     
-    s = time.time()
-    vocab.load_pretrained_embeddings('./vocab/vocab_emb.bin')
-    e = time.time()
-    print('emb loaded from vocab_emb.bin')
-    print('time cost: %g' % (e-s))
+    #
+    vocab.randomly_init_embeddings(64)
+    print(vocab.embeddings[vocab.get_id('完成')])
+    print()
     
-    vocab.save_embeddings_to_file('./vocab/vocab_emb.txt')
+    #
+    vocab.save_embeddings_to_file('../vocab/vocab_emb_test.txt')
     print('emb saved to vocab_emb.txt')
     
-    #
-    vocab.add_tokens_from_file('./vocab/vocab_emb.txt')
-    print('tokens loaded from vocab_emb.txt')
-    print(vocab.size())
-    print()
-    
-    vocab.save_tokens_to_file('./vocab/vocab_tokens.txt')
-    print('tokens saved to vocab_tokens.txt')
-    print()
-    
-    # print(vocab.embeddings[vocab.get_id(' ')])
-    # print()
-    
-    #
     s = time.time()
-    vocab.load_pretrained_embeddings('./vocab/vocab_emb.txt')
+    vocab.load_pretrained_embeddings('../vocab/vocab_emb_test.txt')
     e = time.time()    
-    print('emb loaded from vocab_emb.txt')
+    print('emb loaded from vocab_emb_test.txt')
     print('time cost: %g' % (e-s))
-    print(vocab.size())
-    print(vocab.emb_dim)
     
-    # print(vocab.embeddings[vocab.get_id(' ')])
-    # print()
-
-    vocab.save_embeddings_to_file('./vocab/vocab_emb.bin')
+    print(vocab.embeddings[vocab.get_id('完成')])
+    print()
+    
+    #
+    vocab.save_embeddings_to_file('../vocab/vocab_emb_test.bin')
     print('emb saved to vocab_emb.bin')
     
+    s = time.time()
+    vocab.load_pretrained_embeddings('../vocab/vocab_emb_test.bin')
+    e = time.time()
+    print('emb loaded from vocab_emb_test.bin')
+    print('time cost: %g' % (e-s))
+    
+    print(vocab.embeddings[vocab.get_id('完成')])
+    print()
+    
+    s = time.time()
+    vocab.load_pretrained_embeddings('../vocab/vocab_emb_test.bin')
+    e = time.time()
+    print('emb loaded from vocab_emb_test.bin')
+    print('time cost: %g' % (e-s))
+    
+    print(vocab.embeddings[vocab.get_id('完成')])
+    print()
+    
+    
+    # print(vocab.embeddings[vocab.get_id(' ')])
+    # print()
+    
+    # print(vocab.embeddings[vocab.get_id(' ')])
+    # print()
     
     #
-    vocab.add_tokens_from_file('./vocab/vocab_tokens.txt')
-    print('tokens loaded from vocab_tokens.txt')
-    print(vocab.size())
+    print(vocab.get_id(' '))
+    print(vocab.embeddings[vocab.get_id(' ')])
+    print()
+    
+    #
+    vocab.save_embeddings_to_file('../vocab/vocab_emb_test.txt')
+    print('emb saved to vocab_emb.txt')
+    
+    s = time.time()
+    vocab.load_pretrained_embeddings('../vocab/vocab_emb_test.txt')
+    e = time.time()    
+    print('emb loaded from vocab_emb_test.txt')
+    print('time cost: %g' % (e-s))
     
     print(vocab.embeddings[vocab.get_id(' ')])
     print()
+    
+    #
+    vocab.save_embeddings_to_file('../vocab/vocab_emb_test.bin')
+    print('emb saved to vocab_emb.bin')
+    
+    s = time.time()
+    vocab.load_pretrained_embeddings('../vocab/vocab_emb_test.bin')
+    e = time.time()
+    print('emb loaded from vocab_emb_test.bin')
+    print('time cost: %g' % (e-s))
+    
+    print(vocab.embeddings[vocab.get_id(' ')])
+    print()
+    
+    s = time.time()
+    vocab.load_pretrained_embeddings('../vocab/vocab_emb_test.bin')
+    e = time.time()
+    print('emb loaded from vocab_emb_test.bin')
+    print('time cost: %g' % (e-s))
+    
+    print(vocab.embeddings[vocab.get_id(' ')])
+    print()
+    
+    
+    # print(vocab.embeddings[vocab.get_id(' ')])
+    # print()
+    
+    # print(vocab.embeddings[vocab.get_id(' ')])
+    # print()
     
       
