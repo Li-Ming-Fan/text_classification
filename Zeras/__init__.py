@@ -12,5 +12,5 @@ from __future__ import with_statement, absolute_import
 
 
 __author__ = 'Ming-Fan Li <li_m_f@163.com>'
-__version__ = '0.1.2'
+__version__ = '0.1.3'
 

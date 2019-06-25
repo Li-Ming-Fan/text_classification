@@ -187,6 +187,7 @@ class ModelSettingsBaseboard(object):
         #
         info_dict["model_dir"] = None
         info_dict["model_name"] = None
+        info_dict["model_dir_best"] = None
         info_dict["pb_file"] = None
         info_dict["log_dir"] = None
         info_dict["log_path"] = None
