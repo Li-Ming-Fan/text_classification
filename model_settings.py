@@ -89,6 +89,7 @@ class ModelSettings(ModelSettingsBaseboard):
         self.base_dir = './task_cls'
         self.model_dir = None
         self.model_name = None
+        self.model_dir_best = None
         self.pb_file = None
         self.log_dir = None
         self.log_path = None

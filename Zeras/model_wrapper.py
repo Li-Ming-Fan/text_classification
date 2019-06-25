@@ -8,6 +8,9 @@ Created on Mon Aug 27 22:31:20 2018
 import os
 import numpy as np
 
+import collections
+import re
+
 import tensorflow as tf
 from tensorflow.python.framework import graph_util
 
@@ -303,8 +306,8 @@ class ModelWrapper():
 
         #
         # load
-        if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
-        self.load_ckpt(dir_ckpt)
+        # if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
+        if dir_ckpt is not None: self.load_ckpt(dir_ckpt)
         #
         
     #
@@ -521,8 +524,8 @@ class ModelWrapper():
             
         #
         # load
-        if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
-        self.load_ckpt(dir_ckpt)
+        # if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
+        if dir_ckpt is not None: self.load_ckpt(dir_ckpt)
         #
         
     #
@@ -530,6 +533,12 @@ class ModelWrapper():
         #
         with self._graph.as_default():
             self._sess.run(tf.assign(self._keep_prob, tf.constant(keep_prob, dtype=tf.float32)))
+        #
+        
+    def assign_global_step(self, step):
+        #
+        with self._graph.as_default():
+            self._sess.run(tf.assign(self.global_step, tf.constant(step, dtype=tf.int32)))
         #
     
     #
@@ -547,7 +556,7 @@ class ModelWrapper():
         constant_graph = graph_util.convert_variables_to_constants(
                 model._sess, model._sess.graph_def,
                 output_node_names = model.pb_outputs_name)
-        with tf.gfile.FastGFile(pb_file, mode='wb') as f:
+        with tf.gfile.GFile(pb_file, mode='wb') as f:
             f.write(constant_graph.SerializeToString())
         #
         str_info = 'pb_file saved: %s' % pb_file
@@ -579,6 +588,32 @@ class ModelWrapper():
             str_info = 'Failed: ckpt loading from %s' % dir_ckpt
             self.logger.info(str_info)
             print(str_info)            
+    
+    #
+    def get_assignment_map_from_checkpoint(tr_vars, ckpt_dir_or_file):
+        """ 
+        """
+        name_to_variable = collections.OrderedDict()
+        for var in tr_vars:
+            name = var.name
+            m = re.match("^(.*):\\d+$", name)
+            if m is not None:
+                name = m.group(1)
+            name_to_variable[name] = var
+        
+        ckpt_vars = tf.train.list_variables(ckpt_dir_or_file)
+        
+        assignment_map = collections.OrderedDict()
+        initialized_variable_names = {}
+        for x in ckpt_vars:
+            (name, var) = (x[0], x[1])
+            if name not in name_to_variable:
+                continue
+            assignment_map[name] = name   # same name
+            initialized_variable_names[name] = 1
+            initialized_variable_names[name + ":0"] = 1
+        
+        return (assignment_map, initialized_variable_names)
     
     # graph and sess
     def get_model_graph_and_sess(self):
