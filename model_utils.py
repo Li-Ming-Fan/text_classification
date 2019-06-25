@@ -60,7 +60,7 @@ def do_eval(settings, args):
     if args.ckpt_loading == "latest":
         dir_ckpt = settings.model_dir
     else:
-        dir_ckpt = settings.model_dir + "_best"
+        dir_ckpt = settings.model_dir_best
     #
     # model
     model = ModelWrapper(settings, settings.model_graph)
@@ -91,7 +91,7 @@ def do_train_and_valid(settings, args):
     if args.ckpt_loading == "latest":
         dir_ckpt = settings.model_dir
     else:
-        dir_ckpt = settings.model_dir + "_best"
+        dir_ckpt = settings.model_dir_best
     #
     # model
     model = ModelWrapper(settings, settings.model_graph,
@@ -144,7 +144,7 @@ def do_train_and_valid(settings, args):
                 # last_improved = count
                 # ckpt
                 model.logger.info('a new best model, saving ...')
-                model.save_ckpt_best(model.model_dir + '_best', model.model_name, count)
+                model.save_ckpt_best(model.model_dir_best, model.model_name, count)
                 #
             #
             if lr < model.learning_rate_minimum and count > settings.warmup_steps:
@@ -175,7 +175,7 @@ def do_predict(settings, args):
     if args.ckpt_loading == "latest":
         dir_ckpt = settings.model_dir
     else:
-        dir_ckpt = settings.model_dir + "_best"
+        dir_ckpt = settings.model_dir_best
     #
     pb_file = os.path.join(dir_ckpt, "model_saved.pb")
     #
@@ -228,7 +228,7 @@ def do_convert(settings, args):
     if args.ckpt_loading == "latest":
         dir_ckpt = settings.model_dir
     else:
-        dir_ckpt = settings.model_dir + "_best"
+        dir_ckpt = settings.model_dir_best
     #
     # pb_file = os.path.join(dir_ckpt, "model_saved.pb")
     #
