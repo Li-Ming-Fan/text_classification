@@ -81,11 +81,17 @@ class ModelGraph():
     
                 num_head = 2
                 num_hidden = int(128 / num_head)
+                
+                print()
+                print(enc_t)
     
                 sat_t = []
                 for idx in range(num_head):
                     sat_t_c = att_qkv_layer(enc_t, enc_t, enc_t, mask_t, num_hidden,
                                             keep_prob = keep_prob, scope = "t_%d" % idx)
+                    
+                    print(sat_t_c)
+                    
                     sat_t.append(sat_t_c)
                 #
                 sat_t = tf.concat(sat_t, -1)

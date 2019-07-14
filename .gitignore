@@ -5,3 +5,4 @@ vocab/
 log/
 model_*/
 temp*
+data_check_*/

@@ -1,11 +1,85 @@
 # -*- coding: utf-8 -*-
 
+
 import os
+import numpy as np
+import pickle
 
 from Zeras.vocab import Vocab
 
+from Zeras.data_batcher import DataBatcher
+from Zeras.model_wrapper import ModelWrapper
+
 from model_settings import ModelSettings
-import model_utils
+import data_utils
+
+
+def do_debug(settings, args):
+    #
+    if args.ckpt_loading == "latest":
+        dir_ckpt = settings.model_dir
+    else:
+        dir_ckpt = settings.model_dir_best
+    #
+    # model
+    model = ModelWrapper(settings, settings.model_graph)
+    model.prepare_for_train_and_valid(dir_ckpt)
+    model.assign_dropout_keep_prob(1.0)
+    #
+    # data
+    file_raw = os.path.join(args.dir_examples, "data_examples_test.txt")
+    data_raw = data_utils.load_from_file_raw(file_raw)
+    #
+    batch_stder = lambda x: data_utils.get_batch_std(x, settings)
+    data_batcher = DataBatcher(data_raw, batch_stder, settings.batch_size_eval,
+                               single_pass=True)
+    #
+    # eval
+    list_batches_result = []
+    #
+    loss_aver, metric_aver = 0.0, 0.0
+    count = 0
+    while True:
+        batch = data_batcher.get_next_batch()  
+        #
+        if batch is None: break
+        if count == 1000000: continue  #
+        #
+        count += 1
+        # print(count)
+        #
+        results, loss, metric = model.run_eval_one_batch(batch)
+        loss_aver += loss
+        metric_aver += metric
+        # print(loss)
+        # print(metric)
+        #
+        print(count)
+        print("batch data:")
+        print(batch[-1])
+        #
+        print("results:")
+        print(np.argmax(results[0], -1) )
+        print()
+        #
+        item = batch[0], batch[1], np.argmax(results[0], -1)
+        list_batches_result.append(item)
+        #
+    #
+    dir_result = "data_check_result"
+    if not os.path.exists(dir_result): os.mkdir(dir_result)
+    #
+    file_path = os.path.join(dir_result, "list_batches_result_%d.pkl" % settings.batch_size_eval)
+    #
+    with open(file_path, 'wb') as fp:
+        pickle.dump(list_batches_result, fp)
+    #
+    loss_aver /= count
+    metric_aver /= count
+    #
+    print('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
+    model.logger.info('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
+    #
 
 
 import argparse
@@ -15,8 +89,8 @@ def parse_args():
     Parses command line arguments.
     """
     parser = argparse.ArgumentParser('sentence-cls')
-    parser.add_argument('--mode', choices=['train', 'eval', 'convert', 'predict'],
-                        default = 'train', help = 'run mode')
+    parser.add_argument('--mode', choices=['train', 'eval', 'convert', 'predict', 'debug'],
+                        default = 'debug', help = 'run mode')
     #
     parser.add_argument('--gpu', type=str, default = '0',
                         help = 'specify gpu device')
@@ -50,27 +124,6 @@ if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     #
-    # data
-    file_data_train = os.path.join(args.dir_examples, "data_examples_train.pkl")
-    file_data_valid = os.path.join(args.dir_examples, "data_examples_valid.pkl")
-    file_data_test = os.path.join(args.dir_examples, "data_examples_test.pkl")
-    file_data_all = os.path.join(args.dir_examples, "data_examples.pkl")
-    #
-    data_tag = args.data
-    #
-    file_data_pkl = file_data_test
-    #
-    if data_tag == "train":
-        file_data_pkl = file_data_train
-    elif data_tag == "valid":
-        file_data_pkl = file_data_valid
-    elif data_tag == "test":
-        file_data_pkl = file_data_test
-    elif data_tag == "all":
-        file_data_pkl = file_data_all
-    else:
-        print("NOT supported data_tag: " % data_tag)
-        assert False, "must be one of [train|valid|test|all]"
     #
     # model
     model_tag = args.model_tag
@@ -115,16 +168,16 @@ if __name__ == '__main__':
     settings.vocab = vocab
     #
     # run
-    if run_mode == 'train':
-        model_utils.do_train_and_valid(settings, args)
-    elif run_mode == 'eval':
-        model_utils.do_eval(settings, args)
-    elif run_mode == 'predict':
-        model_utils.do_predict(settings, args)
-    elif run_mode == 'convert':
-        model_utils.do_convert(settings, args)
-    else:
-        print('NOT supported mode. supported modes: train, eval, convert and predict.')
+    # do_debug(settings, args)
+    #
+    settings.batch_size_eval = 32
+    print("processing with batch_size_eval: %d ..." % settings.batch_size_eval)
+    do_debug(settings, args)
+    #
+    settings.batch_size_eval = 1
+    print("processing with batch_size_eval: %d ..." % settings.batch_size_eval)
+    do_debug(settings, args)
+    #
     #
     settings.logger.info("task finished")
     settings.close_logger()

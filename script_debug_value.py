@@ -1,11 +1,68 @@
 # -*- coding: utf-8 -*-
 
+
 import os
+import pickle
 
 from Zeras.vocab import Vocab
 
+from Zeras.model_wrapper import ModelWrapper
+
 from model_settings import ModelSettings
-import model_utils
+
+
+def do_check_intermediate_value(settings, args):
+    #
+    if args.ckpt_loading == "latest":
+        dir_ckpt = settings.model_dir
+    else:
+        dir_ckpt = settings.model_dir_best
+    #
+    #
+    settings.batch_size_eval = 1    
+    #
+    # model
+    model = ModelWrapper(settings, settings.model_graph)
+    model.prepare_for_train_and_valid(dir_ckpt)
+    model.assign_dropout_keep_prob(1.0)
+    #
+    # data
+    file_path = "data_check_result/data_diff.pkl"
+    #
+    with open(file_path, 'rb') as fp:
+        data_loaded = pickle.load(fp)
+    #
+    # debug
+    count = 0
+    for key in data_loaded.keys():
+        #
+        count += 1
+        #
+        data_0, data_1 = data_loaded[key]
+        #
+        batch_0, p_0 = data_0
+        batch_1, p_1 = data_1
+        #
+        result_0 = model.run_debug_one_batch(batch_0)
+        result_1 = model.run_debug_one_batch(batch_1)
+        #
+        print("result_0:")
+        print(result_0[0][0])
+        #
+        print("result_1:")
+        print(result_1[0][0])
+        #
+        print()
+        print("result_0:")
+        print(result_0[1][0])
+        #
+        print("result_1:")
+        print(result_1[1][0])
+        #
+        break
+        #
+    #
+
 
 
 import argparse
@@ -15,8 +72,8 @@ def parse_args():
     Parses command line arguments.
     """
     parser = argparse.ArgumentParser('sentence-cls')
-    parser.add_argument('--mode', choices=['train', 'eval', 'convert', 'predict'],
-                        default = 'train', help = 'run mode')
+    parser.add_argument('--mode', choices=['train', 'eval', 'convert', 'predict', 'debug'],
+                        default = 'debug', help = 'run mode')
     #
     parser.add_argument('--gpu', type=str, default = '0',
                         help = 'specify gpu device')
@@ -50,27 +107,6 @@ if __name__ == '__main__':
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
     #
-    # data
-    file_data_train = os.path.join(args.dir_examples, "data_examples_train.pkl")
-    file_data_valid = os.path.join(args.dir_examples, "data_examples_valid.pkl")
-    file_data_test = os.path.join(args.dir_examples, "data_examples_test.pkl")
-    file_data_all = os.path.join(args.dir_examples, "data_examples.pkl")
-    #
-    data_tag = args.data
-    #
-    file_data_pkl = file_data_test
-    #
-    if data_tag == "train":
-        file_data_pkl = file_data_train
-    elif data_tag == "valid":
-        file_data_pkl = file_data_valid
-    elif data_tag == "test":
-        file_data_pkl = file_data_test
-    elif data_tag == "all":
-        file_data_pkl = file_data_all
-    else:
-        print("NOT supported data_tag: " % data_tag)
-        assert False, "must be one of [train|valid|test|all]"
     #
     # model
     model_tag = args.model_tag
@@ -115,16 +151,10 @@ if __name__ == '__main__':
     settings.vocab = vocab
     #
     # run
-    if run_mode == 'train':
-        model_utils.do_train_and_valid(settings, args)
-    elif run_mode == 'eval':
-        model_utils.do_eval(settings, args)
-    elif run_mode == 'predict':
-        model_utils.do_predict(settings, args)
-    elif run_mode == 'convert':
-        model_utils.do_convert(settings, args)
-    else:
-        print('NOT supported mode. supported modes: train, eval, convert and predict.')
+    # do_debug(settings, args)
+    #
+    do_check_intermediate_value(settings, args)
+    #
     #
     settings.logger.info("task finished")
     settings.close_logger()
