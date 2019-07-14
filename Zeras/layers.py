@@ -151,10 +151,13 @@ def qkv_att_layer(query, key, value, mask_mat=None, keep_prob=1.0):
         3-dim, or higher-dim
     """
     dim = query.get_shape().as_list()[-1]
-    att_mat = tf.matmul(query, key, transpose_b=True) / (dim ** 0.5)
+    # att_mat = tf.matmul(query, key, transpose_b=True) / (dim ** 0.5)
+    
+    att_mat = tf.matmul(query, key, transpose_b=True)
+    att_mat = tf.multiply(att_mat, 1.0 / dim ** 0.5)
     #
     if mask_mat is not None:
-        att_mat = tf.add(att_mat, 1e16 * (mask_mat - 1) )  # -inf   # [B, TQ, TM]
+        att_mat = tf.add(att_mat, 1e5 * (mask_mat - 1) )  # -inf   # [B, TQ, TM]
     #
     logits = tf.nn.softmax(att_mat, -1)
     logits = tf.nn.dropout(logits, keep_prob)
@@ -169,52 +172,51 @@ def multihead_attention_layer(num_heads, num_units,
     """
     dim_all = num_heads * num_units
     
-    qd = tf.layers.dense(query, dim_all, name="qd")
-    kd = tf.layers.dense(key, dim_all, name="kd")
-    vd = tf.layers.dense(value, dim_all, name="vd")
+    q_2d = tf.reshape(query, [-1, query.shape[-1]])
+    k_2d = tf.reshape(key, [-1, key.shape[-1]])
+    v_2d = tf.reshape(key, [-1, value.shape[-1]])
     
-    """
-    qs = array_ops.split(value = qd, num_or_size_splits = num_heads, axis = -1)
-    ks = array_ops.split(value = kd, num_or_size_splits = num_heads, axis = -1)
-    vs = array_ops.split(value = vd, num_or_size_splits = num_heads, axis = -1)
+    qd = tf.layers.dense(q_2d, dim_all, name="query_d")
+    kd = tf.layers.dense(k_2d, dim_all, name="key_d")
+    vd = tf.layers.dense(v_2d, dim_all, name="value_d")   
     
-    # to [B, H, T, D]
-    qe = tf.concat([tf.expand_dims(item, 1) for item in qs], 1)
-    ke = tf.concat([tf.expand_dims(item, 1) for item in ks], 1)
-    ve = tf.concat([tf.expand_dims(item, 1) for item in vs], 1)
+    #
+    shape_q = tf.shape(query)
+    batch_size = shape_q[0]
+    seq_len_q = shape_q[1]
     
-    """
+    shape_k = tf.shape(key)
+    seq_len_k = shape_k[1]
     
-    spq = tf.shape(query)
-    batch_size = spq[0]
-    time_len = spq[1]
-    qs = tf.reshape(qd, [batch_size, time_len, num_heads, num_units])
-    ks = tf.reshape(kd, [batch_size, time_len, num_heads, num_units])
-    vs = tf.reshape(vd, [batch_size, time_len, num_heads, num_units])
+    #
+    qd_4d = tf.reshape(qd, [batch_size, seq_len_q, num_heads, num_units])
+    kd_4d = tf.reshape(kd, [batch_size, seq_len_k, num_heads, num_units])
+    vd_4d = tf.reshape(vd, [batch_size, seq_len_k, num_heads, num_units])
     
-    qe = tf.transpose(qs, [0, 2, 1, 3])   # to [B, H, T, D]
-    ke = tf.transpose(ks, [0, 2, 1, 3])
-    ve = tf.transpose(vs, [0, 2, 1, 3])
+    qd_4d = tf.transpose(qd_4d, [0, 2, 1, 3])
+    kd_4d = tf.transpose(kd_4d, [0, 2, 1, 3])
+    vd_4d = tf.transpose(vd_4d, [0, 2, 1, 3])
+    
+    #    
+    att_scores = tf.matmul(qd_4d, kd_4d, transpose_b=True) / (num_units ** 0.5)
+    
+    if mask_mat is not None:
+        mask_mat_e = tf.cast(tf.expand_dims(mask_mat, axis=[1]), tf.float32)
+        att_scores += (mask_mat_e - 1.0) * 10000.0
+        
+    att_probs = tf.nn.softmax(att_scores)
+    att_probs = dropout(att_probs, keep_prob)
+    
+    #
+    value_summ = tf.matmul(att_probs, vd_4d)
+    
+    value_summ = tf.transpose(value_summ, [0, 2, 1, 3])
+    value_summ = tf.reshape(value_summ, [batch_size, seq_len_k, dim_all])
 
-    # qkv
-    if mask_mat is None:
-        mask_mat_e = None
-    else:
-        mask_mat_e = tf.expand_dims(mask_mat, 1)
-    #
-    out, att = qkv_att_layer(qe, ke, ve, mask_mat_e, keep_prob)
-    #
-    
-    # concat
-    # out_list = [ out[:,idx,:,:] for idx in range(num_heads) ]
-    # out_c = tf.concat(out_list, -1)
-    
-    out_c = tf.transpose(out, [0, 2, 1, 3])           # to [B, T, H, D]
-    out_c = tf.reshape(out, [batch_size, time_len, dim_all])
-    
     # linear
-    out_d = tf.layers.dense(out_c, dim_all, name="out_d")
-    return out_d
+    value_summ = tf.layers.dense(value_summ, dim_all, name="out_d")
+    
+    return value_summ
 
 #
 class MultiHeadAttention():

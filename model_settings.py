@@ -82,7 +82,7 @@ class ModelSettings(ModelSettingsBaseboard):
         self.use_metric = True
         
         self.debug_tensors_name = ["vs_multi_gpu/posi_emb/concat:0",
-                                   "vs_multi_gpu/self_att_0/t_0/MatMul_1:0"]
+                                   "vs_multi_gpu/self_att_0/Reshape_7:0"]
         #
        
         #

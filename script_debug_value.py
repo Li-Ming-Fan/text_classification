@@ -47,17 +47,17 @@ def do_check_intermediate_value(settings, args):
         result_1 = model.run_debug_one_batch(batch_1)
         #
         print("result_0:")
-        print(result_0[0][0])
+        print(result_0[0][0][0:6])
         #
         print("result_1:")
-        print(result_1[0][0])
+        print(result_1[0][0][0:6])
         #
         print()
         print("result_0:")
-        print(result_0[1][0])
+        print(result_0[1][0][0:6])
         #
         print("result_1:")
-        print(result_1[1][0])
+        print(result_1[1][0][0:6])
         #
         break
         #

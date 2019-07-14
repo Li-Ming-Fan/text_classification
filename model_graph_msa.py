@@ -14,6 +14,8 @@ from zoo_layers import dropout
 from zoo_layers import get_posi_emb
 from zoo_layers import att_qkv_layer, att_pool_layer
 
+from Zeras.layers import multihead_attention_layer
+from Zeras.nn import get_tensor_expanded
 
 class ModelGraph():
     
@@ -54,6 +56,7 @@ class ModelGraph():
             
             mask_t = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
             # seq_len = tf.reduce_sum(mask_t, 1)
+            mask_mat = get_tensor_expanded(mask_t, 1, tf.float32)
             
         with tf.variable_scope("posi_emb"):
     
@@ -73,7 +76,7 @@ class ModelGraph():
         #
         # transformers
         #
-        num_layers_trans = 2
+        num_layers_trans = 12
         #
         for lid in range(num_layers_trans):
     
@@ -84,7 +87,8 @@ class ModelGraph():
                 
                 print()
                 print(enc_t)
-    
+                
+                """
                 sat_t = []
                 for idx in range(num_head):
                     sat_t_c = att_qkv_layer(enc_t, enc_t, enc_t, mask_t, num_hidden,
@@ -95,13 +99,22 @@ class ModelGraph():
                     sat_t.append(sat_t_c)
                 #
                 sat_t = tf.concat(sat_t, -1)
+                """
+                     
+                sat_t = multihead_attention_layer(num_head, num_hidden,
+                                                  enc_t, enc_t, enc_t, mask_mat, keep_prob)                
+                
+                
+                #
+                print(sat_t)
+                
                 #
                 # add & norm
                 sat_t = dropout(sat_t, keep_prob=keep_prob)
                 sat_t = tf.layers.dense(sat_t, enc_dim)
                 #
                 enc_t = enc_t + sat_t
-                enc_t = tf.contrib.layers.layer_norm(enc_t)
+                # enc_t = tf.contrib.layers.layer_norm(enc_t)
                 #
                 """
                 # dense
