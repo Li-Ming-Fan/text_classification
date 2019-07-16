@@ -81,8 +81,8 @@ class ModelSettings(ModelSettingsBaseboard):
         self.outputs_train_name = ['vs_multi_gpu/score/logits:0']
         self.use_metric = True
         
-        self.debug_tensors_name = ["vs_multi_gpu/posi_emb/concat:0",
-                                   "vs_multi_gpu/self_att_0/Reshape_7:0"]
+        self.debug_tensors_name = ["vs_multi_gpu/score/logits:0",
+                                   "vs_multi_gpu/score/logits:0"]
         #
        
         #

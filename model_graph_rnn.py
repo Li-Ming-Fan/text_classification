@@ -42,7 +42,8 @@ class ModelGraph():
             emb_mat = tf.get_variable('embedding',
                                       [settings.vocab.size(), settings.vocab.emb_dim],
                                       initializer=tf.constant_initializer(settings.vocab.embeddings),
-                                      trainable = settings.emb_tune)
+                                      trainable = settings.emb_tune,
+                                      dtype=tf.float32)
             seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
             
             seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)

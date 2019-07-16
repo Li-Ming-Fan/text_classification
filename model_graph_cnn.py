@@ -38,7 +38,8 @@ class ModelGraph():
             emb_mat = tf.get_variable('embedding',
                                       [settings.vocab.size(), settings.vocab.emb_dim],
                                       initializer=tf.constant_initializer(settings.vocab.embeddings),
-                                      trainable = settings.emb_tune)
+                                      trainable = settings.emb_tune,
+                                      dtype=tf.float32)
             seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
     
         with tf.name_scope("cnn"):
@@ -53,6 +54,7 @@ class ModelGraph():
             conv2_3 = tf.layers.conv1d(conv1, 128, 3, name='conv2_3')
             conv2_2 = tf.layers.conv1d(conv1, 128, 2, name='conv2_2')
             
+            # 有[PAD]影响计算结果的问题，需要解决            
             # max_pooling, 最大值采提
             feat1 = tf.reduce_max(conv2_5, reduction_indices=[1], name='feat1')
             feat2 = tf.reduce_max(conv2_3, reduction_indices=[1], name='feat2')

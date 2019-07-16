@@ -5,181 +5,113 @@ Created on Sat Sep  1 17:14:19 2018
 @author: limingfan
 """
 
-import numpy as np
 import tensorflow as tf
-# from tensorflow.python.ops import array_ops
-
 
 #
-def get_position_emb_mat(max_seq_len, posi_emb_dim, posi_emb_model,
-                         trainable = False, name="position_embeddings"):
-    """
-    """
-    d_model_recip_2 = 2.0 / posi_emb_model
-    
-    arg_mat = np.zeros((max_seq_len, posi_emb_dim), dtype=np.float32)
-    for idx in range(max_seq_len):
-        for idm in range(posi_emb_dim):
-            arg_mat[idx, idm] = idx * 1e-4**(d_model_recip_2 * idm)
+def dropout(inputs, keep_prob, feature_stick=True, mode="recurrent"):
     #
-    pe_sin = np.sin(arg_mat)
-    pe_cos = np.cos(arg_mat)
-    #    
-    pe_sin = np.expand_dims(pe_sin, -1)  
-    pe_cos = np.expand_dims(pe_cos, -1)
-    pe_all = np.concatenate([pe_sin, pe_cos], -1)  # (T, D, 2)
+    if feature_stick is False: return tf.nn.dropout(inputs, keep_prob)
     #
-    pe_all = np.reshape(pe_all, [max_seq_len, -1])
-    pe_all = pe_all[:, 0:posi_emb_dim]
-    
-    #
-    # tf.Tensor
-    pe_mat = tf.get_variable(name, shape = (max_seq_len, posi_emb_dim),
-                             initializer = tf.constant_initializer(pe_all),
-                             trainable = trainable)
-        
-    return pe_mat
-
-#
-def create_dense_vars(input_size, output_size, weight_mat=None,
-                      use_bias=True, bias_init_value=0.0, scope="dense"):
-    """
-    """
-    with tf.variable_scope(scope):
-        if weight_mat is None:
-            W = tf.get_variable("kernel", [input_size, output_size],
-                                initializer = tf.variance_scaling_initializer(),
-                                dtype = tf.float32)
-        else:
-            W = weight_mat
-        if use_bias:
-            b = tf.get_variable("bias", [output_size],
-                                initializer = tf.constant_initializer(bias_init_value),
-                                dtype = tf.float32)
-        else:
-            b = None
-    #
-    return W, b
-
-def dense_with_vars(inputs, Wb, transpose_b=False):
-    """
-    """
-    shape_list = inputs.get_shape().as_list()
-    if len(shape_list) == 2:
-        out = tf.matmul(inputs, Wb[0], transpose_b=transpose_b)
-        if Wb[1] is not None: out = tf.nn.bias_add(out, Wb[1])
-        return out
-    #
-    input_size = shape_list[-1]
     shape = tf.shape(inputs)
-    if transpose_b:
-        output_size = Wb[0].get_shape().as_list()[0]
-    else:
-        output_size = Wb[0].get_shape().as_list()[1]
-    #
-    out_shape = [shape[idx] for idx in range(len(shape_list) - 1)] + [output_size]
-    flat_inputs = tf.reshape(inputs, [-1, input_size])
-    out = tf.matmul(flat_inputs, Wb[0], transpose_b=transpose_b)
-    if Wb[1] is not None: out = tf.nn.bias_add(out, Wb[1])
-    out = tf.reshape(out, out_shape)
+    if mode == "embedding" and len(inputs.get_shape().as_list()) == 2:
+        noise_shape = [shape[0], 1]
+        scale = keep_prob
+        out = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape) * scale
+    elif mode == "recurrent" and len(inputs.get_shape().as_list()) == 3:     
+        noise_shape = [shape[0], 1, shape[-1]]  # batch_major
+        out = tf.nn.dropout(inputs, keep_prob, noise_shape=noise_shape)
+    else: 
+        out = tf.nn.dropout(inputs, keep_prob, noise_shape=None)
     return out
 
-
-def dense(x, output_size, weight_mat=None, transpose_b=False,
-          use_bias=True, bias_init_value=0.0, scope="dense"):
-    """
-    """
-    input_size = x.get_shape().as_list()[-1]
-    #
-    wb = create_dense_vars(input_size, output_size,
-                           weight_mat=weight_mat, use_bias=use_bias,
-                           bias_init_value=bias_init_value, scope=scope)
-    #
-    out = dense_with_vars(x, wb, transpose_b=transpose_b)
-    return out
-
-#
-def layer_norm(x, epsilon=1e-6, scope="layer_norm"):
-    """
-    """
-    num_units = x.get_shape().as_list()[-1]
-    #
+def dense(inputs, hidden, use_bias=True, scope="dense"):
     with tf.variable_scope(scope):
-        beta = tf.get_variable('layer_norm_beta', [num_units],
-                               initializer=tf.ones_initializer(),
-                               trainable=True, dtype=tf.float32)
-        gamma = tf.get_variable('layer_norm_gamma', [num_units],
-                                initializer=tf.zeros_initializer(),
-                                trainable=True, dtype=tf.float32)
-        #
-        mean, std = tf.nn.moments(x, [-1], keep_dims=True, name='moments')        
-        return beta * (x - mean)/ (std + epsilon) + gamma
+        shape = tf.shape(inputs)
+        shape_list = inputs.get_shape().as_list()
+        dim = shape_list[-1]
+        out_shape = [shape[idx] for idx in range(len(shape_list) - 1)] + [hidden]
+        flat_inputs = tf.reshape(inputs, [-1, dim])
+        W = tf.get_variable("kernel", [dim, hidden],
+                            initializer = tf.variance_scaling_initializer())
+        res = tf.matmul(flat_inputs, W)
+        if use_bias:
+            b = tf.get_variable("bias", [hidden],
+                                initializer = tf.constant_initializer(0.))
+            res = tf.nn.bias_add(res, b)
+        res = tf.reshape(res, out_shape)
+        return res
     
-def layer_norm_api(x, scope=None):
-    """
-    """
+def dense_with_w(inputs, hidden, weights, transpose_b=False):
+    shape = tf.shape(inputs)
+    shape_list = inputs.get_shape().as_list()    
+    out_shape = [shape[idx] for idx in range(len(shape_list) - 1)] + [hidden]
+    dim = shape_list[-1]
+    flat_inputs = tf.reshape(inputs, [-1, dim])
+    res = tf.matmul(flat_inputs, weights, transpose_b = transpose_b)
+    res = tf.reshape(res, out_shape)
+    return res
+        
+def gelu(x):
+    cdf = 0.5 * (1.0 + tf.tanh((0.79788456 * (x + 0.044715 * tf.pow(x, 3)) )))
+    return x * cdf
+
+def layer_norm(x, name=None):
     out = tf.contrib.layers.layer_norm(inputs = x,
                                        begin_norm_axis = -1,
                                        begin_params_axis = -1,
-                                       scope = scope)
+                                       scope = name)
     return out
-
+    
 #
-def multihead_attention_layer(num_heads, num_units,
-                              query, key, value, mask_mat=None,
-                              keep_prob=1.0, scope="mha"):
-    """
-    """
-    dim_all = num_heads * num_units
+def get_posi_emb(input_seq, d_posi_emb, d_model, scope="posi_emb"):
     
     with tf.variable_scope(scope):
-        
-        q_2d = tf.reshape(query, [-1, query.shape[-1]])
-        k_2d = tf.reshape(key, [-1, key.shape[-1]])
-        v_2d = tf.reshape(key, [-1, value.shape[-1]])
-        
-        qd = tf.layers.dense(q_2d, dim_all, name="query_d")
-        kd = tf.layers.dense(k_2d, dim_all, name="key_d")
-        vd = tf.layers.dense(v_2d, dim_all, name="value_d")   
-        
+        posi = tf.ones_like(input_seq, dtype = tf.float32)
+        posi = tf.cumsum(posi, axis = 1) - tf.constant(1.0)
+        posi = tf.tile(tf.expand_dims(posi, 2), [1, 1, d_posi_emb])    
+        #               
+        dim = tf.ones_like(input_seq, dtype = tf.float32)
+        dim = tf.tile(tf.expand_dims(dim, 2), [1, 1, d_posi_emb])
+        dim = tf.cumsum(dim, axis = 2) - tf.constant(1.0)
         #
-        shape_q = tf.shape(query)
-        batch_size = shape_q[0]
-        seq_len_q = shape_q[1]
-        
-        shape_k = tf.shape(key)
-        seq_len_k = shape_k[1]
-        
+        d_model_recip = 1.0/ d_model
+        pe = posi * 1e-4**(2 * d_model_recip * dim)
         #
-        qd_4d = tf.reshape(qd, [batch_size, seq_len_q, num_heads, num_units])
-        kd_4d = tf.reshape(kd, [batch_size, seq_len_k, num_heads, num_units])
-        vd_4d = tf.reshape(vd, [batch_size, seq_len_k, num_heads, num_units])
-        
-        qd_4d = tf.transpose(qd_4d, [0, 2, 1, 3])
-        kd_4d = tf.transpose(kd_4d, [0, 2, 1, 3])
-        vd_4d = tf.transpose(vd_4d, [0, 2, 1, 3])
-        
-        #    
-        att_scores = tf.matmul(qd_4d, kd_4d, transpose_b=True) / (num_units ** 0.5)
-        
-        if mask_mat is not None:
-            mask_mat_e = tf.cast(tf.expand_dims(mask_mat, axis=[1]), tf.float32)
-            att_scores += (mask_mat_e - 1.0) * 1000000.0
-            
-        att_probs = tf.nn.softmax(att_scores)
-        att_probs = tf.nn.dropout(att_probs, keep_prob)
-        
+        pe_sin = tf.sin(pe)
+        pe_cos = tf.cos(pe)
         #
-        value_summ = tf.matmul(att_probs, vd_4d)
+        pe_sin = tf.concat([pe_sin, pe_cos], -1)
         
-        value_summ = tf.transpose(value_summ, [0, 2, 1, 3])
-        value_summ = tf.reshape(value_summ, [batch_size, seq_len_k, dim_all])
+    return pe_sin
     
-        # linear
-        value_summ = tf.layers.dense(value_summ, dim_all, name="out_d")
+#
+def calculate_position_emb_mat(max_seq_len, emb_posi_dim, emb_posi_model,
+                               scope = "embedding_mat_posi_scope"):    
+    with tf.variable_scope(scope):
+        #
+        posi = tf.cast(tf.range(max_seq_len), dtype = tf.float32)  # (T,)
+        posi = tf.tile(tf.expand_dims(posi, 1), [1, emb_posi_dim])
+        #
+        dim = tf.cast(tf.range(emb_posi_dim), dtype = tf.float32)  # (D,)
+        dim = tf.tile(tf.expand_dims(dim, 0), [max_seq_len, 1])
+        #
+        d_model_recip = 1.0/ emb_posi_model
+        pe = posi * 1e-4**(2 * d_model_recip * dim)   # (T, D)
+        #
+        pe_sin = tf.sin(pe)
+        pe_cos = tf.cos(pe)
+        #
+        # pe_all = tf.concat([pe_sin, pe_cos], -1)
+        #
+        pe_sin = tf.expand_dims(pe_sin, -1)  
+        pe_cos = tf.expand_dims(pe_cos, -1)
+        pe_all = tf.concat([pe_sin, pe_cos], -1)  # (T, D, 2)
+        #
+        pe_all = tf.reshape(pe_all, [max_seq_len, -1])
+        pe_all = pe_all[:, 0:emb_posi_dim]
         
-        return value_summ
-
+    return pe_all  # pe_sin
+    
 #
 def att_qkv_layer(inputs, memory, values, mask_m, att_dim, keep_prob=1.0, scope="qkv"):
     """ batch_major
@@ -188,8 +120,8 @@ def att_qkv_layer(inputs, memory, values, mask_m, att_dim, keep_prob=1.0, scope=
         values: [B, TV, DV]  # TM = TV
     """
     with tf.variable_scope(scope):
-        d_inputs = tf.nn.dropout(inputs, keep_prob=keep_prob)  # [B, TQ, DQ]
-        d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)
+        d_inputs = dropout(inputs, keep_prob=keep_prob)  # [B, TQ, DQ]
+        d_memory = dropout(memory, keep_prob=keep_prob)
         #
         inputs_d = dense(d_inputs, att_dim, use_bias=False, scope="inputs")            
         memory_d = dense(d_memory, att_dim, use_bias=False, scope="memory")
@@ -203,7 +135,7 @@ def att_qkv_layer(inputs, memory, values, mask_m, att_dim, keep_prob=1.0, scope=
         att_masked = tf.add(att_mat, 1e30 * (mask_3d - 1) )  # -inf   # [B, TQ, TM]
         logits = tf.nn.softmax(att_masked)
         #
-        d_values = tf.nn.dropout(values, keep_prob=keep_prob)  # [B, TM, DV]
+        d_values = dropout(values, keep_prob=keep_prob)  # [B, TM, DV]
         values_d = dense(d_values, att_dim, use_bias=False, scope="values")
         # values_d = tf.nn.relu(values_d)
         #
@@ -212,8 +144,8 @@ def att_qkv_layer(inputs, memory, values, mask_m, att_dim, keep_prob=1.0, scope=
     
 def qk_mat_layer(inputs, memory, att_dim, keep_prob=1.0, scope="qk_mat"):
     with tf.variable_scope(scope):
-        d_inputs = tf.nn.dropout(inputs, keep_prob=keep_prob)  # [B, TQ, D]
-        d_memory = tf.nn.dropout(memory, keep_prob=keep_prob)
+        d_inputs = dropout(inputs, keep_prob=keep_prob)  # [B, TQ, D]
+        d_memory = dropout(memory, keep_prob=keep_prob)
         #
         inputs_d = dense(d_inputs, att_dim, use_bias=False, scope="inputs")            
         memory_d = dense(d_memory, att_dim, use_bias=False, scope="memory")
@@ -231,13 +163,20 @@ def qk_value_pool_layer(qk_mat, values, mask_k, hidden, keep_prob=1.0, scope="qk
         att_masked = tf.add(qk_mat, 1e30 * (mask_3d - 1) )  # -inf   # [B, TQ, TM]
         logits = tf.nn.softmax(att_masked)
         #
-        d_values = tf.nn.dropout(values, keep_prob=keep_prob)  # [B, TM, DV]
+        d_values = dropout(values, keep_prob=keep_prob)  # [B, TM, DV]
         values_d = dense(d_values, qk_mat, use_bias=False, scope="values")
         # values_d = tf.nn.relu(values_d)
         outputs = tf.matmul(logits, values_d)   # [B, TQ, DV_d]
     return outputs
 
-    
+#
+def do_mask_padding_elems(x, mask):
+    # make padding elements in x to -inf,
+    # for next step of softmax,
+    # (batch, time), or (time, batch), or
+    # (batch, time, units), or (time, batch, units)
+    return tf.add(x, 1e30 * tf.cast(mask - 1, dtype=tf.float32) )
+
 def att_pool_layer(query, seq, seq_mask, att_dim, keep_prob=1.0, scope="att_pooling"):
     """ batch_major
         query: [B, DQ]
@@ -248,8 +187,8 @@ def att_pool_layer(query, seq, seq_mask, att_dim, keep_prob=1.0, scope="att_pool
         #
         query = tf.expand_dims(query, 1)  # [B, 1, DQ], TQ = 1
         #
-        d_inputs = tf.nn.dropout(query, keep_prob=keep_prob)  # [B, TQ, DQ]
-        d_memory = tf.nn.dropout(seq, keep_prob=keep_prob)    # [B, TM, DM]
+        d_inputs = dropout(query, keep_prob=keep_prob)  # [B, TQ, DQ]
+        d_memory = dropout(seq, keep_prob=keep_prob)    # [B, TM, DM]
         #
         inputs_d = dense(d_inputs, att_dim, use_bias=False, scope="inputs")            
         memory_d = dense(d_memory, att_dim, use_bias=False, scope="memory")
@@ -263,7 +202,7 @@ def att_pool_layer(query, seq, seq_mask, att_dim, keep_prob=1.0, scope="att_pool
         att_masked = tf.add(att_mat, 1e30 * (mask_3d - 1) )  # -inf   # [B, TQ, TM]
         logits = tf.nn.softmax(att_masked)
         #
-        d_values = tf.nn.dropout(seq, keep_prob=keep_prob)  # [B, TM, DV]
+        d_values = dropout(seq, keep_prob=keep_prob)  # [B, TM, DV]
         values_d = dense(d_values, att_dim, use_bias=False, scope="values")
         # values_d = tf.nn.relu(values_d)
         #
@@ -279,7 +218,8 @@ def rnn_layer(input_sequence, sequence_length, rnn_size,
     #
     # time_major = False
     #
-    input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    # input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    input_sequence = dropout(input_sequence, keep_prob)
     #
     weight_initializer = tf.truncated_normal_initializer(stddev = 0.01)
     act = activation or tf.nn.tanh
@@ -316,7 +256,8 @@ def gru_layer(input_sequence, sequence_length, rnn_size,
     #
     # time_major = False
     #
-    input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    # input_sequence = tf.nn.dropout(input_sequence, keep_prob)
+    input_sequence = dropout(input_sequence, keep_prob)
     #
     act = activation or tf.nn.tanh
     #
@@ -385,4 +326,3 @@ def gather_and_pad_layer(x, num_items):
     
     return bsd, mask
 
-    

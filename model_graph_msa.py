@@ -9,13 +9,17 @@ Created on Sat Jan 19 04:34:03 2019
 import tensorflow as tf
 
 
-from zoo_layers import dropout
+from zoo_nn import get_emb_positioned
+from zoo_nn import get_tensor_expanded
+from zoo_nn import gelu, dropout
 
-from zoo_layers import get_posi_emb
-from zoo_layers import att_qkv_layer, att_pool_layer
+from zoo_layers import get_position_emb_mat
+from zoo_layers import layer_norm
+from zoo_layers import att_pool_layer
 
-from Zeras.layers import multihead_attention_layer
-from Zeras.nn import get_tensor_expanded
+from zoo_layers import multihead_attention_layer
+
+
 
 class ModelGraph():
     
@@ -46,97 +50,89 @@ class ModelGraph():
             emb_mat = tf.get_variable('embedding',
                                       [settings.vocab.size(), settings.vocab.emb_dim],
                                       initializer=tf.constant_initializer(settings.vocab.embeddings),
-                                      trainable = settings.emb_tune)
-            
-        with tf.variable_scope("emb"):
-            
+                                      trainable = settings.emb_tune,
+                                      dtype=tf.float32)
             emb_dim = settings.vocab.emb_dim
             
-            emb_x = tf.nn.embedding_lookup(emb_mat, input_x)
+        with tf.variable_scope("mask"):
             
             mask_t = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
             # seq_len = tf.reduce_sum(mask_t, 1)
             mask_mat = get_tensor_expanded(mask_t, 1, tf.float32)
             
-        with tf.variable_scope("posi_emb"):
-    
-            d_posi_emb = 64
-            d_model = 1024
+        with tf.variable_scope("emb"):
             
-            posi_emb_x = get_posi_emb(input_x, d_posi_emb, d_model)
+            posi_emb_max_len = 512
+            posi_emb_dim = emb_dim
+            posi_emb_model = 1024
             
-            emb_x = tf.concat([emb_x, posi_emb_x], -1)
-            
-            emb_all_dim = emb_dim + d_posi_emb * 2
+            posi_emb_mat = get_position_emb_mat(posi_emb_max_len, posi_emb_dim,
+                                                posi_emb_model)
             
             #
-            enc_t = emb_x
-            enc_dim = emb_all_dim
+            emb_x = get_emb_positioned(input_x, emb_mat, posi_emb_mat)            
+            emb_all_dim = emb_dim
+            
+            #
+            seq_input = emb_x
+            dim_all = emb_all_dim
+            #
     
         #
         # transformers
         #
-        num_layers_trans = 12
+        num_layers_trans = 2
+        num_heads = 2
+        num_units = int(emb_dim / num_heads)
+        #
+        dim_middle = emb_dim * 2
+        #
+        activation_type = "gelu"
         #
         for lid in range(num_layers_trans):
     
             with tf.variable_scope("self_att_%d" % lid):
-    
-                num_head = 2
-                num_hidden = int(128 / num_head)
                 
-                print()
-                print(enc_t)
-                
-                """
-                sat_t = []
-                for idx in range(num_head):
-                    sat_t_c = att_qkv_layer(enc_t, enc_t, enc_t, mask_t, num_hidden,
-                                            keep_prob = keep_prob, scope = "t_%d" % idx)
-                    
-                    print(sat_t_c)
-                    
-                    sat_t.append(sat_t_c)
+                # sublayer-0
+                # attention
+                seq = multihead_attention_layer(num_heads, num_units,
+                                                seq_input, seq_input, seq_input,
+                                                mask_mat = mask_mat,
+                                                keep_prob = keep_prob)
                 #
-                sat_t = tf.concat(sat_t, -1)
-                """
-                     
-                sat_t = multihead_attention_layer(num_head, num_hidden,
-                                                  enc_t, enc_t, enc_t, mask_mat, keep_prob)                
-                
-                
-                #
-                print(sat_t)
-                
+                # drop
+                seq = dropout(seq, keep_prob=keep_prob)
                 #
                 # add & norm
-                sat_t = dropout(sat_t, keep_prob=keep_prob)
-                sat_t = tf.layers.dense(sat_t, enc_dim)
+                seq_input = layer_norm(seq_input + seq, scope="layer_norm_att")
                 #
-                enc_t = enc_t + sat_t
-                # enc_t = tf.contrib.layers.layer_norm(enc_t)
+                
                 #
-                """
+                # sublayer-1
                 # dense
-                ffn_t = dropout(enc_t, keep_prob=keep_prob)
-                ffn_t = tf.layers.dense(ffn_t, enc_dim, activation=tf.nn.relu)
-                ffn_t = tf.layers.dense(ffn_t, enc_dim)
+                if activation_type == "relu":
+                    act = tf.nn.relu
+                else:
+                    act = gelu            
+                seq = tf.layers.dense(seq_input, dim_middle, activation = act)
+                seq = tf.layers.dense(seq, dim_all)
+                #
+                # drop
+                seq = dropout(seq, keep_prob=keep_prob)
                 #
                 # add & norm
-                enc_t = enc_t + ffn_t
-                enc_t = tf.contrib.layers.layer_norm(enc_t)
+                seq_input = layer_norm(seq_input + seq, scope="layer_norm_ff")
                 #
-                """
     
         with tf.variable_scope("feat"):
             """ attention-pooling, 注意力加权采提
             """        
-            B = tf.shape(enc_t)[0]
+            B = tf.shape(seq_input)[0]
             query = tf.get_variable("query", [settings.att_dim],
                                     initializer = tf.ones_initializer())
             query = tf.tile(tf.expand_dims(query, 0), [B, 1])
     
-            feat = att_pool_layer(query, enc_t, mask_t, settings.att_dim,
+            feat = att_pool_layer(query, seq_input, mask_t, settings.att_dim,
                                   keep_prob, scope="att_pooling")
             
         with tf.variable_scope("score"):

@@ -9,6 +9,7 @@ Created on Mon Sep  3 21:05:25 2018
 import tensorflow as tf
 
 
+
 def cnn_rnf_layer(seq, seq_len, R, rnn_size, padding='valid', scope='cnn_rnf'):
     """ seq: [B, T, D]
     """
@@ -89,7 +90,8 @@ class ModelGraph():
             emb_mat = tf.get_variable('embedding',
                                       [settings.vocab.size(), settings.vocab.emb_dim],
                                       initializer=tf.constant_initializer(settings.vocab.embeddings),
-                                      trainable = settings.emb_tune)
+                                      trainable = settings.emb_tune,
+                                      dtype=tf.float32)
             seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
             
             seq_mask = tf.cast(tf.cast(input_x, dtype = tf.bool), dtype = tf.int32)
@@ -101,12 +103,17 @@ class ModelGraph():
             conv1_3 = tf.layers.conv1d(seq_emb, 128, 3, padding='same', name='conv1_3')
             conv1_2 = tf.layers.conv1d(seq_emb, 128, 2, padding='same', name='conv1_2')
             
+            # 有[PAD]影响计算结果的问题，需要解决            
+            # max_pooling, 最大值采提
             feat1 = tf.reduce_max(conv1_5, reduction_indices=[1], name='feat1')
             feat2 = tf.reduce_max(conv1_3, reduction_indices=[1], name='feat2')
             feat3 = tf.reduce_max(conv1_2, reduction_indices=[1], name='feat3')
             
             #
             crnf_5 = cnn_rnf_layer(seq_emb, seq_len, 5, 128, padding='valid', scope='cnn_rnf')
+            
+            # 有[PAD]影响计算结果的问题，需要解决            
+            # max_pooling, 最大值采提
             feat_r = tf.reduce_max(crnf_5, 1)
             
             feat = tf.concat([feat1, feat2, feat3, feat_r], 1)
