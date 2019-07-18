@@ -23,10 +23,7 @@ def get_warmup_and_exp_decayed_lr(settings, global_step):
     """
     learning_rate = tf.constant(value = settings.learning_rate_base,
                                 shape = [], dtype = tf.float32)    
-    learning_rate = tf.train.exponential_decay(learning_rate, global_step,
-                                               settings.decay_steps,
-                                               settings.decay_rate,
-                                               settings.staircase)    
+        
     if settings.warmup_steps:
         global_steps_int = tf.cast(global_step, tf.int32)
         warmup_steps_int = tf.constant(settings.warmup_steps, dtype=tf.int32)
@@ -34,12 +31,26 @@ def get_warmup_and_exp_decayed_lr(settings, global_step):
         global_steps_float = tf.cast(global_steps_int, tf.float32)
         warmup_steps_float = tf.cast(warmup_steps_int, tf.float32)
         
+        step_surplus = global_steps_int - warmup_steps_int
+        learning_rate = tf.train.exponential_decay(learning_rate,
+                                                   step_surplus,
+                                                   settings.decay_steps,
+                                                   settings.decay_rate,
+                                                   settings.staircase)
+        
         warmup_percent_done = global_steps_float / warmup_steps_float
         warmup_learning_rate = settings.learning_rate_base * warmup_percent_done
         
         learning_rate = tf.cond(global_steps_int < warmup_steps_int,
                                 lambda: warmup_learning_rate,
                                 lambda: learning_rate)
+    #
+    else:
+        learning_rate = tf.train.exponential_decay(learning_rate,
+                                                   global_step,
+                                                   settings.decay_steps,
+                                                   settings.decay_rate,
+                                                   settings.staircase)
     #
     return learning_rate
     #
