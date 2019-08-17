@@ -20,6 +20,51 @@ from zoo_layers import att_pool_layer
 from zoo_layers import multihead_attention_layer
 
 
+def transformer_encoder(seq_emb, mask_mat, num_layers, num_heads, num_units_all,
+                        dim_middle, activation_type, keep_prob):
+    """
+    """
+    num_units_per_head = int(num_units_all / num_heads)
+    #
+    seq_input = seq_emb
+    #
+    for lid in range(num_layers):
+
+        with tf.variable_scope("self_att_%d" % lid):
+            
+            # sublayer-0
+            # attention
+            seq = multihead_attention_layer(num_heads, num_units_per_head,
+                                            seq_input, seq_input, seq_input,
+                                            mask_mat = mask_mat,
+                                            keep_prob = keep_prob)
+            #
+            # drop
+            seq = dropout(seq, keep_prob=keep_prob)
+            #
+            # add & norm
+            seq_input = layer_norm(seq_input + seq, scope="layer_norm_att")
+            #
+            
+            #
+            # sublayer-1
+            # dense
+            if activation_type == "relu":
+                act = tf.nn.relu
+            else:
+                act = gelu            
+            seq = tf.layers.dense(seq_input, dim_middle, activation = act)
+            seq = tf.layers.dense(seq, num_units_all)
+            #
+            # drop
+            seq = dropout(seq, keep_prob=keep_prob)
+            #
+            # add & norm
+            seq_input = layer_norm(seq_input + seq, scope="layer_norm_ff")
+            #
+    #
+    return seq_input
+
 
 class ModelGraph():
     
@@ -81,48 +126,19 @@ class ModelGraph():
         #
         # transformers
         #
-        num_layers_trans = 2
+        num_layers = 2
         num_heads = 2
-        num_units = int(emb_dim / num_heads)
         #
         dim_middle = emb_dim * 2
-        #
         activation_type = "gelu"
         #
-        for lid in range(num_layers_trans):
-    
-            with tf.variable_scope("self_att_%d" % lid):
-                
-                # sublayer-0
-                # attention
-                seq = multihead_attention_layer(num_heads, num_units,
-                                                seq_input, seq_input, seq_input,
-                                                mask_mat = mask_mat,
-                                                keep_prob = keep_prob)
-                #
-                # drop
-                seq = dropout(seq, keep_prob=keep_prob)
-                #
-                # add & norm
-                seq_input = layer_norm(seq_input + seq, scope="layer_norm_att")
-                #
-                
-                #
-                # sublayer-1
-                # dense
-                if activation_type == "relu":
-                    act = tf.nn.relu
-                else:
-                    act = gelu            
-                seq = tf.layers.dense(seq_input, dim_middle, activation = act)
-                seq = tf.layers.dense(seq, dim_all)
-                #
-                # drop
-                seq = dropout(seq, keep_prob=keep_prob)
-                #
-                # add & norm
-                seq_input = layer_norm(seq_input + seq, scope="layer_norm_ff")
-                #
+        with tf.variable_scope("transformers"):
+            
+            seq_input = transformer_encoder(seq_input, mask_mat,
+                                            num_layers, num_heads, dim_all,
+                                            dim_middle, activation_type, keep_prob)
+            #
+        
     
         with tf.variable_scope("feat"):
             """ attention-pooling, 注意力加权采提

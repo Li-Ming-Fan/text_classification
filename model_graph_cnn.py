@@ -1,12 +1,51 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Aug 25 13:49:51 2018
+Created on Sat Aug 17 09:30:05 2019
 
-@author: limingfan
-
+@author: li-ming-fan
 """
 
 import tensorflow as tf
+
+
+def conv1d_layer(seq_emb, params):
+    '''define a convolutional layer with params'''
+    #
+    # 输入数据维度为 3-D tensor: [batch_size, time, channels]
+    #
+    # params = [filters, kernel_size, padding, name]
+    #
+    # conv = tf.layers.conv1d(seq_emb, 128, 5, padding='same', name='conv1_5')
+    output = tf.layers.conv1d(seq_emb,
+                              params[0], params[1],
+                              padding=params[2], name=params[3])
+    #
+    # kernel_initializer = tf.contrib.layers.variance_scaling_initializer()
+    # kernel_initializer = tf.contrib.layers.xavier_initializer()    
+    # bias_initializer = tf.constant_initializer(value=0.0)
+    #
+    return output
+    #
+    
+def module_cnn(seq_emb, scope):
+    """
+    """
+    with tf.variable_scope(scope):
+        
+        conv1_3 = conv1d_layer(seq_emb, [128, 3, 'valid', 'conv1_3'])
+        feat1_3 = tf.reduce_max(conv1_3, axis=1, name="feat1_3")
+        
+        conv1_2 = conv1d_layer(seq_emb, [128, 2, 'valid', 'conv1_2'])
+        feat1_2 = tf.reduce_max(conv1_2, axis=1, name="feat1_2")
+        
+        conv1_1 = conv1d_layer(seq_emb, [128, 1, 'valid', 'conv1_1'])
+        feat1_1 = tf.reduce_max(conv1_1, axis=1, name="feat1_1")
+        
+        feat = tf.concat([feat1_1, feat1_2, feat1_3], axis=-1, name="feat")
+    
+    return feat
+    
 
 
 class ModelGraph():
@@ -40,29 +79,16 @@ class ModelGraph():
                                       initializer=tf.constant_initializer(settings.vocab.embeddings),
                                       trainable = settings.emb_tune,
                                       dtype=tf.float32)
-            seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
-    
-        with tf.name_scope("cnn"):
             #
-            conv1_5 = tf.layers.conv1d(seq_emb, 128, 5, padding='same', name='conv1_5')
-            conv1_3 = tf.layers.conv1d(seq_emb, 128, 3, padding='same', name='conv1_3')
-            conv1_2 = tf.layers.conv1d(seq_emb, 128, 2, padding='same', name='conv1_2')
-            
-            conv1 = tf.concat([conv1_5, conv1_3, conv1_2], -1)
-            
-            conv2_5 = tf.layers.conv1d(conv1, 128, 5, name='conv2_5')
-            conv2_3 = tf.layers.conv1d(conv1, 128, 3, name='conv2_3')
-            conv2_2 = tf.layers.conv1d(conv1, 128, 2, name='conv2_2')
-            
-            # 有[PAD]影响计算结果的问题，需要解决            
-            # max_pooling, 最大值采提
-            feat1 = tf.reduce_max(conv2_5, reduction_indices=[1], name='feat1')
-            feat2 = tf.reduce_max(conv2_3, reduction_indices=[1], name='feat2')
-            feat3 = tf.reduce_max(conv2_2, reduction_indices=[1], name='feat3')
-            
-            feat = tf.concat([feat1, feat2, feat3], 1)
+            seq_emb = tf.nn.embedding_lookup(emb_mat, input_x)
+            #
     
-        with tf.name_scope("score"):
+        with tf.variable_scope("cnn"):
+            #
+            feat = module_cnn(seq_emb, "input_x")
+            #
+    
+        with tf.variable_scope("score"):
             #
             fc = tf.nn.dropout(feat, keep_prob)
             fc = tf.layers.dense(fc, 128, name='fc1')            
@@ -89,13 +115,13 @@ class ModelGraph():
         
         y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
         
-        with tf.name_scope("loss"):
+        with tf.variable_scope("loss"):
             #
             cross_entropy = tf.nn.sparse_softmax_cross_entropy_with_logits(logits = logits,
                                                                            labels = input_y)
             loss = tf.reduce_mean(cross_entropy, name = 'loss')
     
-        with tf.name_scope("accuracy"):
+        with tf.variable_scope("accuracy"):
             #
             correct_pred = tf.equal(input_y, y_pred_cls)
             acc = tf.reduce_mean(tf.cast(correct_pred, tf.float32), name = 'metric')
