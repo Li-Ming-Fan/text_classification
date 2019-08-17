@@ -36,7 +36,7 @@ To specifiy gpu to be used:
 
 </br>
 
-Requiring package jieba for token-segmentation:
+Using package jieba for token-segmentation:
 
 pip install jieba
 
