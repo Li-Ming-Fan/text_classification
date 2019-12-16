@@ -18,16 +18,15 @@ class ModelSettings(ModelSettingsBaseboard):
         
         # model graph
         self.model_tag = None
-        self.is_train = None        
-        #
-        
+        self.is_train = None
+        self.use_metric_in_graph = True        
+
         # data macro     
         self.min_seq_len = 5      #
         self.max_seq_len = 300   #
         
         # model macro
         self.att_dim = 128
-        #
         self.num_classes = 2
         
         # vocab
@@ -36,17 +35,11 @@ class ModelSettings(ModelSettingsBaseboard):
         self.emb_tune = 0  # 1 for tune, 0 for not
         self.tokens_file = './vocab/vocab_tokens.txt'
         self.emb_file = None
-        
+
         # train
-        self.gpu_available = "0"  # specified in args
+        self.gpu_available = "0"          # NOT assign here, specified in args
         self.gpu_batch_split = [12, 20]   # list; if None, batch split evenly
-        #
-        self.gpu_mem_growth = True
-        self.log_device = False
-        self.soft_placement = True
-        
-        self.with_bucket = False
-        
+                
         self.num_epochs = 100     
         self.batch_size = 32
         self.batch_size_eval = 1
@@ -68,24 +61,7 @@ class ModelSettings(ModelSettingsBaseboard):
         
         self.check_period_batch = 100
         self.valid_period_batch = 100
-        #
-        
-        # inputs/outputs
-        self.vs_str_multi_gpu = "vs_multi_gpu"
-        #
-        self.inputs_predict_name = ['input_x:0']     
-        self.outputs_predict_name = ['vs_multi_gpu/score/logits:0']
-        self.pb_outputs_name = ['vs_multi_gpu/score/logits']
-        
-        self.inputs_train_name = ['input_x:0', 'input_y:0']
-        self.outputs_train_name = ['vs_multi_gpu/score/logits:0']
-        self.use_metric = True
-        
-        self.debug_tensors_name = ["vs_multi_gpu/score/logits:0",
-                                   "vs_multi_gpu/score/logits:0"]
-        #
-       
-        #
+
         # save and log, if not set, default values will be used.
         self.base_dir = './task_cls'
         self.model_dir = None

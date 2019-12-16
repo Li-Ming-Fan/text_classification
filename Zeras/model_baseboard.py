@@ -1,20 +1,25 @@
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Mon Aug 27 22:31:20 2018
-
-@author: limingfan
+Created on Sat Sep  7 23:19:42 2019
+@author: li-ming-fan
 """
 
 import os
 import numpy as np
 
+import time
+import logging
+import json
+
 import tensorflow as tf
 from tensorflow.python.framework import graph_util
+
+from abc import ABCMeta, abstractmethod
 
 
 """
 This class is meant to be task-agnostic.
-
 """
 
 #
@@ -75,9 +80,10 @@ def get_adam_optimizer(settings, learning_rate_tensor_or_value):
     
     
 #
-class ModelWrapper():
-    
-    def __init__(self, settings, model_graph,
+class ModelBaseboard(metaclass=ABCMeta):
+    """
+    """    
+    def __init__(self, settings,
                  learning_rate_schedule = get_warmup_and_exp_decayed_lr,
                  customized_optimizer = get_adam_optimizer):
         #
@@ -85,66 +91,123 @@ class ModelWrapper():
         self.customized_optimizer = customized_optimizer
         #
         self.set_model_settings(settings)
-        self.model_graph = model_graph
         #
-        
+        # pb/debug tensor names
+        self.vs_str_multi_gpu = "vs_gpu"
+        #
+        self.pb_input_names = {"input_x": "input_x:0"}    
+        self.pb_output_names = {"logits": "vs_gpu/score/logits:0"}
+        self.pb_save_names = ["vs_gpu/score/logits"]
+        #
+        self.debug_tensor_names = ["vs_gpu/score/logits:0",
+                                   "vs_gpu/loss/loss_model:0"]
+        #
+        # be aware to assign the right value
+        #
+
+    #
+    # three abstract methods
+    @abstractmethod
+    def build_placeholder(self):
+        """  input_tensors, label_tensors = self.build_placeholder()
+        """
+        pass
+    
+    @abstractmethod
+    def build_inference(self, input_tensors):
+        """ output_tensors = self.build_inference(input_tensors)
+            keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32,
+                                        trainable=False)
+        """
+        pass
+    
+    @abstractmethod
+    def build_loss_and_metric(self, output_tensors, label_tensors):
+        """ loss_tensors = self.build_loss(output_tensors, label_tensors)
+        """
+        pass
+
+    #
+    # settings and logger
     def set_model_settings(self, settings):
+        #
+        # session info
+        if "log_device" not in settings.__dict__.keys():
+            settings.__dict__["log_device"] = False 
+        #
+        if "soft_placement" not in settings.__dict__.keys():
+            settings.__dict__["soft_placement"] = True 
+        #
+        if "gpu_mem_growth" not in settings.__dict__.keys():
+            settings.__dict__["gpu_mem_growth"] = True 
+        #
+        # params
+        if "reg_lambda" not in settings.__dict__.keys():
+            settings.__dict__["reg_lambda"] = 0.0
+        #
+        if "reg_exclusions" not in settings.__dict__.keys():
+            settings.__dict__["reg_exclusions"] = ["embedding", "bias", "layer_norm", "LayerNorm"]
+        #
+        if "grad_clip" not in settings.__dict__.keys():
+            settings.__dict__["grad_clip"] = 0.0
+        #
+        if "saver_num_keep" not in settings.__dict__.keys():
+            settings.__dict__["saver_num_keep"] = 5
+        #
+        # logger
+        if "logger" in settings.__dict__.keys():
+            self.log_path = settings.log_path
+            self.logger = settings.logger
+        else:
+            #
+            str_datetime = time.strftime("%Y-%m-%d-%H-%M")
+            log_path = os.path.join(settings.log_dir, settings.model_name + "_" + str_datetime +".txt")
+            self.log_path = log_path
+            self.logger = ModelBaseboard.create_logger(log_path)
+        #
+        """
+        for key in settings.__dict__.keys():                 
+            self.__dict__[key] = settings.__dict__[key]
+        """
         #
         # settings
         self.settings = settings
         self.num_gpu = len(settings.gpu_available.split(","))
-        self.vs_str_multi_gpu = "vs_gpu"
         #
         # session info
         self.sess_config = tf.ConfigProto(log_device_placement = settings.log_device,
                                           allow_soft_placement = settings.soft_placement)
         self.sess_config.gpu_options.allow_growth = settings.gpu_mem_growth
         #
-            
-    # predict
-    def prepare_for_prediction_with_pb(self, pb_file_path = None):
-        #
-        if pb_file_path is None: pb_file_path = self.settings.pb_file 
-        if not os.path.exists(pb_file_path):
-            assert False, 'ERROR: %s NOT exists, when prepare_for_prediction()' % pb_file_path
-        #
-        self._graph = tf.Graph()
-        with self._graph.as_default():
-            with open(pb_file_path, "rb") as f:
-                graph_def = tf.GraphDef()
-                graph_def.ParseFromString(f.read())
-                tf.import_graph_def(graph_def, name="")
-                #
-            #
-            self._inputs_pred = {}
-            for tensor_tag, tensor_name in self.model_graph.pb_input_names.items():
-                tensor = self._graph.get_tensor_by_name(tensor_name)
-                self._inputs_pred[tensor_tag] = tensor
-            #
-            self._outputs_pred = {}
-            for tensor_tag, tensor_name in self.model_graph.pb_output_names.items():
-                tensor = self._graph.get_tensor_by_name(tensor_name)
-                self._outputs_pred[tensor_tag] = tensor
-            #
-            # self._inputs_pred_num = len(self._inputs_pred)
-            print('Graph loaded for prediction')
-            #
-        #
-        self._sess = tf.Session(graph = self._graph, config = self.sess_config)
-        #
-    
-    def predict_with_pb_from_batch(self, x_batch):
-        #
-        feed_dict = self.feed_data_predict(x_batch)
-        output_dict = self._sess.run(self._outputs_pred, feed_dict = feed_dict)        
-        return output_dict
 
-    def feed_data_predict(self, x_batch):        
-        feed_dict = {}
-        for tensor_tag, tensor in self._inputs_pred.items():
-            feed_dict[tensor] = x_batch[tensor_tag]
-        return feed_dict
-        
+    @staticmethod
+    def create_logger(log_path):
+        """
+        """
+        logger = logging.getLogger(log_path)  # use log_path as log_name
+        logger.setLevel(logging.INFO)
+        handler = logging.FileHandler(log_path)
+        handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        # self.logger.info('test')
+        return logger
+
+    @staticmethod
+    def create_or_reset_log_file(log_path):        
+        with open(log_path, 'w', encoding='utf-8'):
+            print("log file renewed")
+    
+    @staticmethod
+    def close_logger(logger):
+        for item in self.logger.handlers:
+            item.close()
+            print("logger handler item closed")
+
+    #
+    # feed_data_train
     def feed_data_train(self, data_batch):
         feed_dict = {}
         for tensor_tag, tensor in self._inputs_train.items():
@@ -171,7 +234,7 @@ class ModelWrapper():
         feed_dict = self.feed_data_train(one_batch)
         result_list = self._sess.run(self._debug_tensors, feed_dict = feed_dict)        
         return result_list
-
+    
     #
     def prepare_for_train_and_valid(self, dir_ckpt = None):
         """
@@ -214,13 +277,13 @@ class ModelWrapper():
                 assert False, "NOT supported optimizer_type"
             #
             # model
-            input_tensors, label_tensors = self.model_graph.build_placeholder(self.settings)
+            input_tensors, label_tensors = self.build_placeholder()
             #
             vs_str = self.vs_str_multi_gpu
             vs_prefix = vs_str + "/"
             with tf.variable_scope(vs_str):
-                output_tensors = self.model_graph.build_inference(self.settings, input_tensors)
-                loss_metric_tensors = self.model_graph.build_loss_and_metric(self.settings, output_tensors, label_tensors)
+                output_tensors = self.build_inference(input_tensors)
+                loss_metric_tensors = self.build_loss_and_metric(output_tensors, label_tensors)
             #
             # all trainable vars
             self.trainable_vars = tf.trainable_variables()
@@ -272,7 +335,7 @@ class ModelWrapper():
             # params count
             self.num_vars = len(self.trainable_vars)
             str_info = 'graph built, there are %d variables in the model' % self.num_vars
-            self.settings.logger.info(str_info)
+            self.logger.info(str_info)
             print(str_info)
             #
             tf_shapes = [tf.shape(v) for v in self.trainable_vars]
@@ -281,7 +344,7 @@ class ModelWrapper():
             self.param_num = sum(params_v)
             #
             str_info = 'there are %d parameters in the model' % self.param_num
-            self.settings.logger.info(str_info)
+            self.logger.info(str_info)
             print(str_info)
             #
             print()
@@ -291,7 +354,7 @@ class ModelWrapper():
             print()
             #
             
-            # outputs eval
+            # outputs_eval
             self._outputs_eval = output_tensors
             self._outputs_eval["loss_optim"] = self._loss_tensor
             if self.settings.use_metric_in_graph:
@@ -308,8 +371,12 @@ class ModelWrapper():
             self._inputs_train = dict(input_tensors, **label_tensors)
             #
             # debug tensors
+            print("self.debug_tensor_names:")
+            print(self.debug_tensor_names)
+            print("if the above is not right, please assign the right value")
+            #
             self._debug_tensors = []
-            for name in self.model_graph.debug_tensor_names:
+            for name in self.debug_tensor_names:
                 tensor = self._graph.get_tensor_by_name(name)
                 self._debug_tensors.append(tensor)
             #
@@ -376,7 +443,7 @@ class ModelWrapper():
                 assert False, "NOT supported optimizer_type"
             #
             # model, placeholder
-            input_tensors, label_tensors = self.model_graph.build_placeholder(self.settings)
+            input_tensors, label_tensors = self.build_placeholder()
             #
             # split among gpu
             inputs = []
@@ -407,24 +474,23 @@ class ModelWrapper():
                 for gid in range(self.num_gpu):
                     with tf.device("/gpu:%d" % gid), tf.name_scope("bundle_%d" % gid):
                         #
-                        output_tensors = self.model_graph.build_inference(self.settings,
-                                                                          inputs[gid])
-                        loss_metric_tensors = self.model_graph.build_loss_and_metric(self.settings,
-                                                                                     output_tensors,
-                                                                                     labels[gid])
+                        output_tensors = self.build_inference(inputs[gid])
+                        loss_metric_tensors = self.build_loss_and_metric(output_tensors,
+                                                                         labels[gid])
                         #
                         tf.get_variable_scope().reuse_variables()
                         #
+                        outputs_list.append(output_tensors)
+                        #
                         loss = loss_metric_tensors["loss_model"]
+                        loss_list.append(loss)
+                        #
                         if self.settings.use_metric_in_graph:
                             metric = loss_metric_tensors["metric"]
+                            metric_list.append(metric)
                         #
                         grads = self._opt.compute_gradients(loss)
                         grads_bundles.append(grads)
-                        #
-                        outputs_list.append(output_tensors)
-                        loss_list.append(loss)
-                        metric_list.append(metric)
                         #
             #
             # all trainable vars
@@ -456,7 +522,7 @@ class ModelWrapper():
                 #
             #           
             # grad sum
-            grads_summed = ModelWrapper.sum_up_gradients(grads_bundles)
+            grads_summed = ModelBaseboard.sum_up_gradients(grads_bundles)
             #            
             # grad_clip
             if self.settings.grad_clip > 0.0:
@@ -483,7 +549,7 @@ class ModelWrapper():
             # params count
             self.num_vars = len(self.trainable_vars)
             str_info = 'graph built, there are %d variables in the model' % self.num_vars
-            self.settings.logger.info(str_info)
+            self.logger.info(str_info)
             print(str_info)
             #
             tf_shapes = [tf.shape(v) for v in self.trainable_vars]
@@ -492,7 +558,7 @@ class ModelWrapper():
             self.param_num = sum(params_v)
             #
             str_info = 'there are %d parameters in the model' % self.param_num
-            self.settings.logger.info(str_info)
+            self.logger.info(str_info)
             print(str_info)
             #
             print()
@@ -547,7 +613,7 @@ class ModelWrapper():
         # if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
         if dir_ckpt is not None: self.load_ckpt(dir_ckpt)
         #
-        
+    
     #
     # assign
     def assign_dropout_keep_prob(self, keep_prob):
@@ -571,7 +637,7 @@ class ModelWrapper():
         #
     
     #
-    # save and load        
+    # save and load
     def save_ckpt_best(self, model_dir, model_name, step):
         #
         self._saver_best.save(self._sess, os.path.join(model_dir, model_name),
@@ -589,52 +655,106 @@ class ModelWrapper():
             self._saver.restore(self._sess, ckpt.model_checkpoint_path)
             #
             str_info = 'ckpt loaded from %s' % dir_ckpt
-            self.settings.logger.info(str_info)
+            self.logger.info(str_info)
             print(str_info)
         else:
             str_info = 'loading ckpt failed: ckpt loading from %s' % dir_ckpt
-            self.settings.logger.info(str_info)
+            self.logger.info(str_info)
             print(str_info)
-
+            
     #
     # predict, pb
-    def load_ckpt_and_save_pb_file(self, dir_ckpt):
+    @staticmethod
+    def load_ckpt_and_save_pb_file(model, dir_ckpt):
+        """
+        """
+        is_train = model.settings.is_train
+        num_gpu = model.num_gpu
         #
-        is_train = self.settings.is_train
-        self.settings.is_train = False       #
+        model.settings.is_train = False                #
+        model.num_gpu = 1                              #
         #
-        model = ModelWrapper(self.settings, self.model_graph)
-        model.prepare_for_train_and_valid_single_gpu(dir_ckpt)         # loaded here 
+        model.prepare_for_train_and_valid(dir_ckpt)              # loaded here 
         model.assign_dropout_keep_prob(1.0)
         #
-        print("model.model_graph.pb_save_names:")
-        print(model.model_graph.pb_save_names)
+        print("model.pb_save_names:")
+        print(model.pb_save_names)
         print("if the above is not right, please assign the right value")
         #
-        pb_file = os.path.join(dir_ckpt, "model_saved.pb")
+        pb_file = os.path.join(dir_ckpt, "model_frozen.pb")
         #
         constant_graph = graph_util.convert_variables_to_constants(
                 model._sess, model._sess.graph_def,
-                output_node_names = model.model_graph.pb_save_names)
+                output_node_names = model.pb_save_names)
         with tf.gfile.GFile(pb_file, mode='wb') as f:
             f.write(constant_graph.SerializeToString())
         #
         str_info = 'pb_file saved: %s' % pb_file
-        self.settings.logger.info(str_info)
+        model.logger.info(str_info)
         #
-        self.settings.is_train = is_train           #
+        model.settings.is_train = is_train
+        model.num_gpu = num_gpu
         #
+        
+    def prepare_for_prediction_with_pb(self, pb_file_path = None):
+        """ load pb for prediction
+        """
+        if pb_file_path is None: pb_file_path = self.settings.pb_file 
+        if not os.path.exists(pb_file_path):
+            assert False, 'ERROR: %s NOT exists, when prepare_for_prediction()' % pb_file_path
+        #
+        self._graph = tf.Graph()
+        with self._graph.as_default():
+            with open(pb_file_path, "rb") as f:
+                graph_def = tf.GraphDef()
+                graph_def.ParseFromString(f.read())
+                tf.import_graph_def(graph_def, name="")
+                #
+                print('Graph loaded for prediction')
+                #
+            #
+            # tensor names
+            print("self.pb_input_names:")
+            print(self.pb_input_names)
+            print("if the above is not right, please assign the right value")
+            print("similar for self.pb_output_names")
+            #
+            self._inputs_pred = {}
+            for tensor_tag, tensor_name in self.pb_input_names.items():
+                tensor = self._graph.get_tensor_by_name(tensor_name)
+                self._inputs_pred[tensor_tag] = tensor
+            #
+            self._outputs_pred = {}
+            for tensor_tag, tensor_name in self.pb_output_names.items():
+                tensor = self._graph.get_tensor_by_name(tensor_name)
+                self._outputs_pred[tensor_tag] = tensor
+            #
+            print('Graph loaded for prediction')
+            #
+        #
+        self._sess = tf.Session(graph = self._graph, config = self.sess_config)
+        #
+    
+    def predict_with_pb_from_batch(self, x_batch):
+        #
+        feed_dict = self.feed_data_predict(x_batch)
+        output_dict = self._sess.run(self._outputs_pred, feed_dict = feed_dict)        
+        return output_dict
 
+    def feed_data_predict(self, x_batch):        
+        feed_dict = {}
+        for tensor_tag, tensor in self._inputs_pred.items():
+            feed_dict[tensor] = x_batch[tensor_tag]
+        return feed_dict
+    
+    #
     # graph and sess
     def get_model_graph_and_sess(self):
         #
         return self._graph, self._sess
         #
-            
+
+#
 if __name__ == '__main__':
     
     pass
-
-        
-    
-    

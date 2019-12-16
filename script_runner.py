@@ -28,7 +28,7 @@ def parse_args():
     #
     model_related = parser.add_argument_group('model related settings')    
     model_related.add_argument('--model_tag', type=str,
-                               default = 'msa', help='model_tag')
+                               default = 'cap', help='model_tag')
     #
     data_related = parser.add_argument_group('data related settings')
     data_related.add_argument('--dir_examples', type=str,
@@ -49,28 +49,6 @@ if __name__ == '__main__':
     #
     os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-    #
-    # data
-    file_data_train = os.path.join(args.dir_examples, "data_examples_train.pkl")
-    file_data_valid = os.path.join(args.dir_examples, "data_examples_valid.pkl")
-    file_data_test = os.path.join(args.dir_examples, "data_examples_test.pkl")
-    file_data_all = os.path.join(args.dir_examples, "data_examples.pkl")
-    #
-    data_tag = args.data
-    #
-    file_data_pkl = file_data_test
-    #
-    if data_tag == "train":
-        file_data_pkl = file_data_train
-    elif data_tag == "valid":
-        file_data_pkl = file_data_valid
-    elif data_tag == "test":
-        file_data_pkl = file_data_test
-    elif data_tag == "all":
-        file_data_pkl = file_data_all
-    else:
-        print("NOT supported data_tag: " % data_tag)
-        assert False, "must be one of [train|valid|test|all]"
     #
     # model
     model_tag = args.model_tag

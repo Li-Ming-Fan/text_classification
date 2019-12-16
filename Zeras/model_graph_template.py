@@ -5,38 +5,31 @@ Created on Sat Feb 16 07:18:29 2019
 @author: limingfan
 """
 
-# import tensorflow as tf
+import tensorflow as tf
 
 
 class ModelGraphTemplate():
     """ Template for model graph.
         Three static methods
-    """    
+        pb/debug tensor names
+    """
+    #    
+    pb_input_names = {"input_x": "input_x:0"}    
+    pb_output_names = {"logits": "vs_gpu/score/logits:0"}
+    pb_save_names = ["vs_gpu/score/logits"]
+    #
+    debug_tensor_names = ["vs_gpu/score/logits:0",
+                          "vs_gpu/score/logits:0"]
+    #
     @staticmethod
     def build_placeholder(settings):
         """
-        """        
-        # src_seq = tf.placeholder(tf.int32, [None, None], name='src_seq')  # id in vocab
-        # src_seq_mask = tf.placeholder(tf.int32, [None, None], name='src_seq_mask')
-        
-        # dcd_seq = tf.placeholder(tf.int32, [None, None], name='dcd_seq')  # id in vocab
-        # dcd_seq_mask = tf.placeholder(tf.int32, [None, None], name='dcd_seq_mask')
-
-        # labels_seq = tf.placeholder(tf.int32, [None, None], name='labels_seq')  # id in vocab
-        # labels_mask = tf.placeholder(tf.int32, [None, None], name='labels_mask')
-        
+        """
+        input_x = None
+        input_y = None
         #
-        # input sequence: could not prefix and suffix, when preparing examples
-        # label sequence: suffix with a [end] token, then do [pad].
-        #
-        # decoder input seq: prefix with [start], suffix with [end], then do [pad].
-        #
-        # print(src_seq)
-        #
-        # input_tensors = (src_seq, src_seq_mask, dcd_seq, dcd_seq_mask)
-        # label_tensors = (labels_seq, labels_mask)
-        input_tensors = None
-        label_tensors = None
+        input_tensors = {"input_x": input_x}
+        label_tensors = {"input_y": input_y}
         #
         return input_tensors, label_tensors
     
@@ -46,11 +39,15 @@ class ModelGraphTemplate():
         """
         """
         #
+        keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32, trainable=False)
+        print(keep_prob)
+        #
+        logits_normed = None
+        #
         # print(logits_normed)
         # print(preds)
         #
-        # output_tensors = logits_normed, logits, preds
-        output_tensors = None
+        output_tensors = {"logits_normed": logits_normed}
         #   
         return output_tensors
     
@@ -60,11 +57,13 @@ class ModelGraphTemplate():
         """
         """            
         #
+        loss_model = None
+        metric = None
+        #
         # print(loss)
         # print(metric)
         #
-        loss = None
-        metric = None
+        loss_metric_tensors = {"loss_model": loss_model, "metric": metric}
         #
-        return loss, metric
+        return loss_metric_tensors
         #

@@ -47,13 +47,15 @@ def run_through_list_data(list_data, single_pass):
 #
 class DataBatcher(object):    
     """ This class is meant to be task-agnostic
-    """    
-    BATCH_QUEUE_MAX = 300       # max number of batches the batch_queue can hold
-    BATCH_TIME_OUT = 5          # seconds
-    EXAMPLE_TIME_OUT = 2
-    
+    """
+    BATCH_TIME_OUT = 6          # seconds
+    EXAMPLE_TIME_OUT = 3
+    #    
     def __init__(self, example_gen_or_list, batch_standardizer,
-                 batch_size, single_pass, with_bucket=False, worker_type="thread"):
+                 batch_size, single_pass, with_bucket=False, worker_type="thread",
+                 num_worker_example_single=1, num_workers_batch_single=3,
+                 num_worker_example_multi=12, num_workers_batch_multi=12,
+                 bucketing_cahce_size=10000, batch_queue_max=300):
         """
         """
         if isinstance(example_gen_or_list, list):
@@ -68,13 +70,15 @@ class DataBatcher(object):
         # queue
         self.single_pass = single_pass
         if single_pass:
-            self.num_example_q_workers = 1 # one worker, so we read through the dataset just once
-            self.num_batch_q_workers = 3   # num_workers to batch examples
-            self.bucketing_cache_size = 1  # this essentially means no bucketing
+            self.num_workers_example = num_worker_example_single
+            self.num_workers_batch = num_workers_batch_single            
         else:
-            self.num_example_q_workers = 12 # num workers to fill example queue
-            self.num_batch_q_workers = 12   # num workers to fill batch queue
-            self.bucketing_cache_size = 200 # how many batches-worth of examples to load into cache before bucketing
+            self.num_workers_example = num_worker_example_multi
+            self.num_workers_batch = num_workers_batch_multi
+        #
+        self.bucketing_cache_size = bucketing_cahce_size
+        self.batch_queue_max = batch_queue_max
+        #
         
         # worker_type
         self.worker_type = worker_type   # "process", "thread"
@@ -94,6 +98,7 @@ class DataBatcher(object):
             batch = self._batch_queue.get(timeout = self.BATCH_TIME_OUT) # get the next Batch
             return batch    
         except BaseException:
+            print("batch queue finished")
             return None
         
     #
@@ -111,8 +116,8 @@ class DataBatcher(object):
         #
         
         # queue
-        self._batch_queue = Queue.Queue(self.BATCH_QUEUE_MAX)
-        self._example_queue = Queue.Queue(self.BATCH_QUEUE_MAX * self.batch_size)
+        self._batch_queue = Queue.Queue(self.batch_queue_max)
+        self._example_queue = Queue.Queue(self.batch_queue_max * self.batch_size)
         
         self._finished_reading = False
         self.count_put_examples = 0
@@ -120,13 +125,13 @@ class DataBatcher(object):
         #
         # workers
         self._example_q_workers = []        
-        for _ in range(self.num_example_q_workers):
+        for _ in range(self.num_workers_example):
             self._example_q_workers.append(self.Process(target=self.fill_example_queue))
             self._example_q_workers[-1].daemon = True
             self._example_q_workers[-1].start()
           
         self._batch_q_workers = []
-        for _ in range(self.num_batch_q_workers):
+        for _ in range(self.num_workers_batch):
             self._batch_q_workers.append(self.Process(target=self.fill_batch_queue))
             self._batch_q_workers[-1].daemon = True
             self._batch_q_workers[-1].start()
@@ -147,11 +152,9 @@ class DataBatcher(object):
         while True:
             try:
                 base_example = next(example_iter)
-                # print(base_example)
-                #
-            except BaseException: # if there is no more example:                
+            except BaseException: # if there is no more example:
                 if self.single_pass:
-                    print("fill_example_queue(), single_pass on, data finished, break loop")
+                    print("single_pass on, data finished, break loop")
                     self._finished_reading = True                    
                     break
                 else:
@@ -159,6 +162,7 @@ class DataBatcher(object):
             #
             self._example_queue.put(base_example)
             self.count_put_examples += 1
+            #
             
     # batch    
     def fill_batch_queue(self):
@@ -190,13 +194,20 @@ class DataBatcher(object):
                         flag_succeed = 0
                         break
                 #
-                if flag_succeed == 0:
-                    for example in b:
-                        self._example_queue.put(example)
-                    print("fill_batch_queue(), examples reput, num_examples: %d." % len(b))
+                if flag_succeed == 1:
+                    self._batch_queue.put(self.batch_standardizer(b))
+                else:                    
+                    if self._finished_reading and len(b) > 0:
+                        self._batch_queue.put(self.batch_standardizer(b))
+                        print("put last batch")
+                    else:  # not single_pass, single_pass but not finished                      
+                        for example in b:
+                            self._example_queue.put(example)
+                        print("reput examples: %d." % len(b))
+                    #
+                    print("batch thread finished, break loop")
                     break
                 #
-                self._batch_queue.put(self.batch_standardizer(b)) 
                 # print(b)
                 #
     

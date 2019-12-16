@@ -91,7 +91,7 @@ def build_vocab_tokens(data_seg, vocab):
 # batch standardized
 def get_batch_std(data_raw, settings):
     """ data_raw: list of (text, label),
-        returning: data for deep-model input
+        returning: data_dict for deep-model input
     """
     vocab = settings.vocab
     min_seq_len = 1
@@ -109,7 +109,9 @@ def get_batch_std(data_raw, settings):
     x, y = list(zip(*data_e))
     x_std, x_len = standardize_list_seqs(x, min_seq_len, max_seq_len)
     #
-    return (x_std, y)
+    data_dict = {"input_x": x_std, "input_y": y}
+    #
+    return data_dict
 
 #
 # task-agnostic

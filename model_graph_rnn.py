@@ -14,7 +14,16 @@ from zoo_layers import att_pool_layer
 
 
 class ModelGraph():
-    
+    """
+    """
+    # input/output tensors
+    pb_input_names = {"input_x": "input_x:0"}
+    pb_output_names = {"logits": "vs_gpu/score/logits:0"}
+    pb_save_names = ["vs_gpu/score/logits"]
+    #
+    debug_tensor_names = ["vs_gpu/score/logits:0",
+                          "vs_gpu/score/logits:0"]
+    #    
     @staticmethod
     def build_placeholder(settings):
         
@@ -25,15 +34,15 @@ class ModelGraph():
         print(input_x)
         print(input_y)
         #
-        input_tensors = (input_x, )
-        label_tensors = (input_y, )
+        input_tensors = {"input_x": input_x}
+        label_tensors = {"input_y": input_y}
         #
         return input_tensors, label_tensors
     
     @staticmethod
     def build_inference(settings, input_tensors):
         
-        input_x = input_tensors[0]
+        input_x = input_tensors["input_x"]
 
         #
         keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32, trainable=False)
@@ -80,15 +89,16 @@ class ModelGraph():
         #
         print(normed_logits)
         #
-        output_tensors = normed_logits, logits
+        output_tensors = {"normed_logits": normed_logits,
+                          "logits": logits }
         #   
         return output_tensors
     
     @staticmethod
     def build_loss_and_metric(settings, output_tensors, label_tensors):
         
-        normed_logits, logits = output_tensors
-        input_y = label_tensors[0]
+        logits = output_tensors["logits"]
+        input_y = label_tensors["input_y"] 
         
         
         y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
@@ -108,5 +118,8 @@ class ModelGraph():
         print(loss)
         print(acc)
         #
-        return loss, acc
+        loss_and_metric = {"loss_model": loss,
+                           "metric": acc}
+        #
+        return loss_and_metric
         #

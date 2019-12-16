@@ -6,9 +6,11 @@ import re
 
 class Vocab(object):
     """
-    """    
-    pad_token = '[PAD]'
-    unk_token = '[UNK]'
+    """
+    pad_lower = "[pad]"
+    unk_lower = "[unk]"
+    pad_upper = "[PAD]"
+    unk_upper = "[UNK]"
     num_predefined_tokens = 2
     
     delimiter_str = '[STRSEP]'
@@ -31,7 +33,10 @@ class Vocab(object):
 
     def _add_predefined_and_initial_tokens(self):
         """
-        """        
+        """
+        self.pad_token = self.pad_lower if self.lower else self.pad_upper
+        self.unk_token = self.unk_lower if self.lower else self.unk_upper
+        #
         self.add(self.pad_token, 10000)  # make pad_token id: 0
         self.add(self.unk_token, 10000)
         #

@@ -20,22 +20,17 @@ class ModelSettingsBaseboard(object):
         # model
         self.model_tag = None     # str
         self.is_train = None      # bool
-        
-        # model graph macro parameters
-        #
-        
-        # other macro parameters
-        #
-        
-        #
+        self.model_hyper_params = {}
+        self.use_metric_in_graph = False    
+
         # train
+        self.log_device = False
+        self.gpu_mem_growth = True
+        self.soft_placement = True
+        #        
         self.gpu_available = "0"      # could be specified in args
         self.gpu_batch_split = None   # list, for example, [12, 20]; if None, batch split evenly
-        #
-        self.gpu_mem_growth = True
-        self.log_device = False
-        self.soft_placement = True
-
+        
         self.num_epochs = 100     
         self.batch_size = 32
         self.batch_size_eval = 6
@@ -45,8 +40,7 @@ class ModelSettingsBaseboard(object):
         self.reg_exclusions = ["embedding", "bias", "layer_norm", "LayerNorm"]
         self.grad_clip = 8.0  # 0.0, 5.0, 8.0, 2.0
         self.keep_prob = 0.8  # 1.0, 0.7, 0.5
-        self.label_smoothing = 0.01
-        
+
         self.optimizer_type = 'adam'  # adam, momentum, sgd, customized
         self.momentum = 0.9
         self.learning_rate_base = 0.001   #        
@@ -60,30 +54,6 @@ class ModelSettingsBaseboard(object):
         self.valid_period_batch = 100
         #
 
-        # inputs/outputs
-        self.vs_str_multi_gpu = "vs_multi_gpu"
-        #
-        self.inputs_predict_name = ['src_seq:0', 'src_seq_mask:0']
-        self.outputs_predict_name = ['vs_multi_gpu/logits:0']
-        self.pb_outputs_name = ['vs_multi_gpu/logits']
-                
-        self.inputs_train_name = ['src_seq:0', 'src_seq_mask:0',
-                                  'dcd_seq:0', 'dcd_seq_mask:0',
-                                  'labels_seq:0', 'labels_mask:0']
-        self.outputs_train_name = ['vs_multi_gpu/logits:0']
-        
-        self.loss_name = 'loss/loss:0'
-        self.metric_name = 'metric/metric:0'
-        self.use_metric = True
-        
-        self.debug_tensors_name = ['vs_multi_gpu/loss/loss:0',
-                                   'vs_multi_gpu/logits:0',
-                                   'vs_multi_gpu/preds:0'
-                                   #'encoder/encoder_rnn_1/bw/bw/sequence_length:0',
-                                   #'inputs_len:0'
-                                   ]
-        
-        #
         # save and log, if not set, default values will be used.
         self.base_dir = './task_results'
         self.model_dir = None        
@@ -93,11 +63,14 @@ class ModelSettingsBaseboard(object):
         self.log_dir = None
         self.log_path = None
         #
+        print("settings initialized, to be modified, to be checked")
+        #
     
     def check_settings(self):
         """ assert and make directories
         """        
-        # assert         
+        # assert
+        assert self.model_tag is not None, 'model_tag not assigned'     
         assert self.is_train is not None, 'is_train not assigned'
         
         # gpu
@@ -115,8 +88,10 @@ class ModelSettingsBaseboard(object):
         # directories
         if self.model_dir is None:
             self.model_dir = os.path.join(self.base_dir, 'model_' + self.model_tag)
-        if self.model_dir_best is None: self.model_dir_best = self.model_dir + "_best"
-        if self.log_dir is None: self.log_dir = os.path.join(self.base_dir, 'log')
+        if self.model_dir_best is None:
+             self.model_dir_best = self.model_dir + "_best"
+        if self.log_dir is None:
+             self.log_dir = os.path.join(self.base_dir, 'log')
         #
         if not os.path.exists(self.base_dir): os.mkdir(self.base_dir)
         if not os.path.exists(self.model_dir): os.mkdir(self.model_dir)
@@ -124,12 +99,13 @@ class ModelSettingsBaseboard(object):
         if not os.path.exists(self.log_dir): os.mkdir(self.log_dir)
         #
         # files
-        if self.model_name is None: self.model_name = 'model_' + self.model_tag
-        if self.pb_file is None: self.pb_file = os.path.join(self.model_dir_best, 
-                                                             'model_saved.pb')
+        if self.model_name is None:
+             self.model_name = 'model_' + self.model_tag
+        if self.pb_file is None:
+             self.pb_file = os.path.join(self.model_dir_best, 'model_saved.pb')
         #
         # logger
-        str_datetime = time.strftime("%Y-%m-%d-%H-%M")       
+        str_datetime = time.strftime("%Y-%m-%d-%H-%M")
         if self.log_path is None: self.log_path = os.path.join(
                 self.log_dir, self.model_name + "_" + str_datetime +".txt")
         #
@@ -145,13 +121,17 @@ class ModelSettingsBaseboard(object):
         #
         self.display()
         #
+        print("settings checked, log_file to be created")
+        #
         
     def create_or_reset_log_file(self):        
         with open(self.log_path, 'w', encoding='utf-8'):
-            pass
+            print("log file created")
         
     def close_logger(self):
-        for item in self.logger.handlers: item.close()
+        for item in self.logger.handlers:
+            item.close()
+            print("logger handler item closed")
     
     #
     def display(self):
@@ -181,6 +161,13 @@ class ModelSettingsBaseboard(object):
         for key in info_dict:
             value = info_dict[key]
             setattr(self, key, value)
+        #
+
+    def assign_info_from_namedspace(self, named_data):
+        """
+        """
+        for key in named_data.__dict__.keys():                 
+            self.__dict__[key] = named_data.__dict__[key]
         #
         
     def save_to_json_file(self, file_path):

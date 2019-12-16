@@ -27,8 +27,14 @@ def eval_process(model, eval_batcher, max_batches_eval, mode_eval):
         #
         count += 1
         # print(count)
+        # print(len(batch["input_x"]))
+        # if len(batch) == 0: continue
+        if len(batch["input_x"]) != model.settings.batch_size and model.num_gpu > 1:
+            break
         #
-        results, loss, metric = model.run_eval_one_batch(batch)
+        result_dict = model.run_eval_one_batch(batch)
+        loss = result_dict["loss_optim"]
+        metric = result_dict["metric"]
         loss_aver += loss
         metric_aver += metric
         # print(loss)
@@ -37,19 +43,19 @@ def eval_process(model, eval_batcher, max_batches_eval, mode_eval):
         if mode_eval:
             print(count)
             print("batch data:")
-            print(batch[-1])
+            print(batch["input_y"])
             #
             print("results:")
-            print(np.argmax(results[0], -1) )
-            print()        
+            print(np.argmax(result_dict["logits"], -1) )
+            print()
         #
     #
     loss_aver /= count
     metric_aver /= count
     # metric_aver = 100 - loss_aver
     #
-    model.logger.info('eval finished, with total num_batches: %d' % count)
-    # model.logger.info('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
+    model.settings.logger.info('eval finished, with total num_batches: %d' % count)
+    # model.settings.logger.info('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
     #
     eval_score = {}
     return eval_score, loss_aver, metric_aver
@@ -81,8 +87,8 @@ def do_eval(settings, args):
                                                       mode_eval = True)
     #
     print('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
-    model.logger.info('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
-    model.logger.info('{}'.format(eval_score))
+    settings.logger.info('loss_aver, metric_aver: %g, %g' % (loss_aver, metric_aver))
+    settings.logger.info('{}'.format(eval_score))
     #
     
 #
@@ -118,24 +124,24 @@ def do_train_and_valid(settings, args):
     lr = 0.0
     #
     count = 0
-    model.logger.info("")
+    model.settings.logger.info("")
     while True:
         #
         # eval
         if count % eval_period == 0:            
-            model.logger.info("training curr batch, loss, lr: %d, %g, %g" % (count, loss, lr) )
+            settings.logger.info("training curr batch, loss, lr: %d, %g, %g" % (count, loss, lr) )
             #
-            model.save_ckpt(model.model_dir, model.model_name, count)
+            model.save_ckpt(settings.model_dir, settings.model_name, count)
             model.assign_dropout_keep_prob(1.0)
             #
-            model.logger.info('evaluating after num_batches: %d' % count)
+            settings.logger.info('evaluating after num_batches: %d' % count)
             eval_batcher = DataBatcher(data_raw_eval, batch_stder, settings.batch_size,
                                        single_pass = True)
             #
             eval_score, loss_aver, metric_val = eval_process(model, eval_batcher,
                                                              settings.max_batches_eval,
                                                              mode_eval = False)
-            model.logger.info("eval loss_aver, metric, metric_best: %g, %g, %g" % (
+            settings.logger.info("eval loss_aver, metric, metric_best: %g, %g, %g" % (
                     loss_aver, metric_val, best_metric_val) )
             #
             # save best
@@ -143,16 +149,16 @@ def do_train_and_valid(settings, args):
                 best_metric_val = metric_val
                 # last_improved = count
                 # ckpt
-                model.logger.info('a new best model, saving ...')
-                model.save_ckpt_best(model.model_dir_best, model.model_name, count)
+                settings.logger.info('a new best model, saving ...')
+                model.save_ckpt_best(settings.model_dir_best, settings.model_name, count)
                 #
             #
-            if lr < model.learning_rate_minimum and count > settings.warmup_steps:
-                model.logger.info('current learning_rate < learning_rate_minimum, stop training')
+            if lr < settings.learning_rate_minimum and count > settings.warmup_steps:
+                settings.logger.info('current learning_rate < learning_rate_minimum, stop training')
                 break
             #
             model.assign_dropout_keep_prob(settings.keep_prob)
-            model.logger.info("")
+            settings.logger.info("")
             #
         #
         # train
@@ -161,12 +167,15 @@ def do_train_and_valid(settings, args):
         count += 1
         # print(count)        
         #
-        loss, lr = model.run_train_one_batch(batch)   # just for train
+        result_dict = model.run_train_one_batch(batch)   # just for train
+        loss = result_dict["loss_optim"]
+        lr = result_dict["lr"]
+        #
         # print(loss)
         # model.logger.info("training curr batch, loss, lr: %d, %g, %g" % (count, loss, lr)
         #
     #
-    model.logger.info("training finshed with total num_batches: %d" % count)
+    settings.logger.info("training finshed with total num_batches: %d" % count)
     #
     
 #  
@@ -181,7 +190,7 @@ def do_predict(settings, args):
     #
     # model
     model = ModelWrapper(settings, settings.model_graph)
-    model.prepare_for_prediction(pb_file)
+    model.prepare_for_prediction_with_pb(pb_file)
     #
     # data
     if args.data == "test":
@@ -209,18 +218,18 @@ def do_predict(settings, args):
         print(count)
         #
         print("batch data:")
-        print(batch[-1])
+        print(batch["input_y"])
         print("batch data end")
         #
-        results = model.predict_from_batch(batch)[0]
+        results = model.predict_with_pb_from_batch(batch)["logits"]
         #
         print("results:")
-        print(np.argmax(results, -1) )
+        print(np.argmax(results[0], -1) )
         print("results end")
         print()
         #
     #
-    model.logger.info('prediction finished, with total num_batches: %d' % count)
+    settings.logger.info('prediction finished, with total num_batches: %d' % count)
     #
     
 def do_convert(settings, args):
@@ -233,7 +242,7 @@ def do_convert(settings, args):
     # pb_file = os.path.join(dir_ckpt, "model_saved.pb")
     #
     # model
-    model = ModelWrapper(settings, settings.model_graph)
+    model = ModelWrapper(settings, settings.model_graph)    
     model.load_ckpt_and_save_pb_file(dir_ckpt)
     #
     
