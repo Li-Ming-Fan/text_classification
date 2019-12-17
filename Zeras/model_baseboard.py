@@ -691,6 +691,7 @@ class ModelBaseboard(metaclass=ABCMeta):
         #
         str_info = 'pb_file saved: %s' % pb_file
         model.logger.info(str_info)
+        print(str_info)
         #
         model.settings.is_train = is_train
         model.num_gpu = num_gpu

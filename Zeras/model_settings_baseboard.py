@@ -102,7 +102,7 @@ class ModelSettingsBaseboard(object):
         if self.model_name is None:
              self.model_name = 'model_' + self.model_tag
         if self.pb_file is None:
-             self.pb_file = os.path.join(self.model_dir_best, 'model_saved.pb')
+             self.pb_file = os.path.join(self.model_dir_best, 'model_frozen.pb')
         #
         # logger
         str_datetime = time.strftime("%Y-%m-%d-%H-%M")

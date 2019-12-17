@@ -611,7 +611,7 @@ class ModelWrapper():
         print(model.model_graph.pb_save_names)
         print("if the above is not right, please assign the right value")
         #
-        pb_file = os.path.join(dir_ckpt, "model_saved.pb")
+        pb_file = os.path.join(dir_ckpt, "model_frozen.pb")
         #
         constant_graph = graph_util.convert_variables_to_constants(
                 model._sess, model._sess.graph_def,

@@ -28,7 +28,7 @@ def parse_args():
     #
     model_related = parser.add_argument_group('model related settings')    
     model_related.add_argument('--model_tag', type=str,
-                               default = 'cap', help='model_tag')
+                               default = 'cnn', help='model_tag')
     #
     data_related = parser.add_argument_group('data related settings')
     data_related.add_argument('--dir_examples', type=str,
@@ -54,15 +54,15 @@ if __name__ == '__main__':
     model_tag = args.model_tag
     #
     if model_tag.startswith('cnn'):
-        from model_graph_cnn import ModelGraph
+        from model_graph_cnn import ModelCNN as Model
     elif model_tag.startswith('rnn'):
-        from model_graph_rnn import ModelGraph
+        from model_graph_rnn import ModelRNN as Model
     elif model_tag.startswith('rnf'):
-        from model_graph_rnf import ModelGraph
+        from model_graph_rnf import ModelRNF as Model
     elif model_tag.startswith('msa'):
-        from model_graph_msa import ModelGraph
+        from model_graph_msa import ModelMSA as Model
     elif model_tag.startswith('cap'):
-        from model_graph_cap import ModelGraph
+        from model_graph_cap import ModelCAP as Model
     else:
         assert False, "NOT supported model_tag"
     #
@@ -89,7 +89,7 @@ if __name__ == '__main__':
     vocab.emb_dim = settings.emb_dim
     #
     # model & vocab
-    settings.model_graph = ModelGraph
+    settings.ModelClass = Model
     settings.vocab = vocab
     #
     # run

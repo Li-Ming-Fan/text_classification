@@ -1,6 +1,6 @@
 # Text Classification (Plain Sequence)
 
-Experiments on sentence classification. Task-Independent Model Wrapper. 
+Experiments on sentence classification. Task-Independent Model Baseboard/Wrapper. 
 
 Single GPU or Multi GPU.
 
@@ -40,8 +40,13 @@ Using package jieba for token-segmentation:
 
 pip install jieba
 
+Using package Zeras for model baseboard:
 
-## Task-independent Model Wrapper
+pip install Zeras==0.4.1
+
+
+
+## Task-independent Model Baseboard/Wrapper
 
 A supervised learning project commonly has the following modules:
 

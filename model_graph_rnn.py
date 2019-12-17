@@ -8,25 +8,32 @@ Created on Sat Aug 25 15:33:42 2018
 
 import tensorflow as tf
 
+from Zeras.model_baseboard import ModelBaseboard
+
 # from zoo_layers import rnn_layer
 from zoo_layers import gru_layer as rnn_layer
 from zoo_layers import att_pool_layer
 
 
-class ModelGraph():
+class ModelRNN(ModelBaseboard):
     """
     """
-    # input/output tensors
-    pb_input_names = {"input_x": "input_x:0"}
-    pb_output_names = {"logits": "vs_gpu/score/logits:0"}
-    pb_save_names = ["vs_gpu/score/logits"]
+    def __init__(self, settings):
+        """
+        """
+        super(ModelRNN, self).__init__(settings)
+
+        # input/output tensors
+        self.pb_input_names = {"input_x": "input_x:0"}
+        self.pb_output_names = {"logits": "vs_gpu/score/logits:0"}
+        self.pb_save_names = ["vs_gpu/score/logits"]
+        #
+        self.debug_tensor_names = ["vs_gpu/score/logits:0",
+                                   "vs_gpu/score/logits:0"]
     #
-    debug_tensor_names = ["vs_gpu/score/logits:0",
-                          "vs_gpu/score/logits:0"]
-    #    
-    @staticmethod
-    def build_placeholder(settings):
-        
+    def build_placeholder(self):
+        """
+        """         
         input_x = tf.placeholder(tf.int32, [None, None], name='input_x')
         input_y = tf.placeholder(tf.int64, [None], name='input_y')
         
@@ -39,11 +46,11 @@ class ModelGraph():
         #
         return input_tensors, label_tensors
     
-    @staticmethod
-    def build_inference(settings, input_tensors):
-        
+    def build_inference(self, input_tensors):
+        """
+        """
+        settings = self.settings        
         input_x = input_tensors["input_x"]
-
         #
         keep_prob = tf.get_variable("keep_prob", shape=[], dtype=tf.float32, trainable=False)
         #   
@@ -94,13 +101,14 @@ class ModelGraph():
         #   
         return output_tensors
     
-    @staticmethod
-    def build_loss_and_metric(settings, output_tensors, label_tensors):
-        
+    def build_loss_and_metric(self, output_tensors, label_tensors):
+        """
+        """
+        settings = self.settings
+
         logits = output_tensors["logits"]
         input_y = label_tensors["input_y"] 
-        
-        
+                
         y_pred_cls = tf.argmax(logits, 1, name='pred_cls')
         
         with tf.name_scope("loss"):

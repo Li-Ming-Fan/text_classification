@@ -9,7 +9,6 @@ import os
 import numpy as np
 
 from Zeras.data_batcher import DataBatcher
-from Zeras.model_wrapper import ModelWrapper
 
 import data_utils
 
@@ -69,7 +68,7 @@ def do_eval(settings, args):
         dir_ckpt = settings.model_dir_best
     #
     # model
-    model = ModelWrapper(settings, settings.model_graph)
+    model = settings.ModelClass(settings)
     model.prepare_for_train_and_valid(dir_ckpt)
     model.assign_dropout_keep_prob(1.0)
     #
@@ -100,9 +99,7 @@ def do_train_and_valid(settings, args):
         dir_ckpt = settings.model_dir_best
     #
     # model
-    model = ModelWrapper(settings, settings.model_graph,
-                         learning_rate_schedule = None,
-                         customized_optimizer = None)
+    model = settings.ModelClass(settings)
     model.prepare_for_train_and_valid(dir_ckpt)
     #    
     # data
@@ -186,10 +183,10 @@ def do_predict(settings, args):
     else:
         dir_ckpt = settings.model_dir_best
     #
-    pb_file = os.path.join(dir_ckpt, "model_saved.pb")
+    pb_file = os.path.join(dir_ckpt, "model_frozen.pb")
     #
     # model
-    model = ModelWrapper(settings, settings.model_graph)
+    model = settings.ModelClass(settings)
     model.prepare_for_prediction_with_pb(pb_file)
     #
     # data
@@ -242,7 +239,7 @@ def do_convert(settings, args):
     # pb_file = os.path.join(dir_ckpt, "model_saved.pb")
     #
     # model
-    model = ModelWrapper(settings, settings.model_graph)    
-    model.load_ckpt_and_save_pb_file(dir_ckpt)
+    model = settings.ModelClass(settings)    
+    settings.ModelClass.load_ckpt_and_save_pb_file(model, dir_ckpt)
     #
     
