@@ -5,7 +5,8 @@ from tensorflow.python.ops import state_ops
 
 #
 def linear_warmup_and_exp_decayed_lr(settings, global_step):
-    """ settings.warmup_steps
+    """ settings.learning_rate_base
+        settings.warmup_steps
         settings.decay_steps
         settings.decay_rate
         settings.staircase    
@@ -44,9 +45,12 @@ def linear_warmup_and_exp_decayed_lr(settings, global_step):
     return learning_rate
     #
 
-def linear_warmup_and_linear_decayed_lr(settings, gloabl_step):
-    """ settings.warmup_steps
+def linear_warmup_and_polynomial_decayed_lr(settings, global_step):
+    """ settings.learning_rate_base
+        settings.warmup_steps
         settings.decay_steps
+        settings.learning_rate_minimum
+        settings.lr_power
         settings.lr_cycle
     """
     learning_rate = tf.constant(value = settings.learning_rate_base,
@@ -63,8 +67,8 @@ def linear_warmup_and_linear_decayed_lr(settings, gloabl_step):
         learning_rate = tf.train.polynomial_decay(learning_rate,
                                                   step_surplus,
                                                   settings.decay_steps,
-                                                  end_learning_rate=0.0,
-                                                  power=1.0,
+                                                  end_learning_rate=settings.learning_rate_minimum,
+                                                  power=settings.lr_power,
                                                   cycle=settings.lr_cycle)
         
         warmup_percent_done = global_steps_float / warmup_steps_float
@@ -78,8 +82,8 @@ def linear_warmup_and_linear_decayed_lr(settings, gloabl_step):
         learning_rate = tf.train.polynomial_decay(learning_rate,
                                                   global_step,
                                                   settings.decay_steps,
-                                                  end_learning_rate=0.0,
-                                                  power=1.0,
+                                                  end_learning_rate=settings.learning_rate_minimum,
+                                                  power=settings.lr_power,
                                                   cycle=settings.lr_cycle)
     #
     return learning_rate
@@ -109,10 +113,10 @@ class AdamWeightDecayOptimizer(tf.train.Optimizer):
         super(AdamWeightDecayOptimizer, self).__init__(False, name)        
         self.learning_rate = learning_rate
         self.weight_decay_rate = weight_decay_rate
+        self.exclusions_from_weight_decay = exclusions_from_weight_decay
         self.beta_1 = beta_1
         self.beta_2 = beta_2
-        self.epsilon = epsilon
-        self.exclusions_from_weight_decay = exclusions_from_weight_decay
+        self.epsilon = epsilon        
 
     def apply_gradients(self, grads_and_vars, global_step=None, name=None):
         """
@@ -190,24 +194,11 @@ class AdamWeightDecayOptimizer(tf.train.Optimizer):
 def adam_wd_optimizer(settings, learning_rate_tensor_or_value):
     """
     """
-    if "beta_1" in settings.__dict__.keys():
-        beta_1 = settings.beta_1
-    else:
-        beta_1 = 0.9
-        print("settings.beta_1 not defined")
-        print("using default value 0.9 for beta_1 in AdamWeightDecayOptimizer")
-    #
-    if "beta_2" in settings.__dict__.keys():
-        beta_2 = settings.beta_2
-    else:
-        beta_2 = 0.999
-        print("settings.beta_2 not defined")
-        print("using default value 0.999 for beta_2 in AdamWeightDecayOptimizer")
-    #
     opt = AdamWeightDecayOptimizer(learning_rate_tensor_or_value,
                         weight_decay_rate = settings.reg_lambda,
                         exclusions_from_weight_decay = settings.reg_exclusions,
-                        beta_1 = beta_1, beta_2 = beta_2, epsilon = 1e-6)
+                        beta_1 = settings.beta_1, beta_2 = settings.beta_2,
+                        epsilon = 1e-6)
     #
     return opt
     #

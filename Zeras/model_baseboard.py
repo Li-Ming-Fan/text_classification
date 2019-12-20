@@ -17,8 +17,8 @@ from tensorflow.python.framework import graph_util
 
 from abc import ABCMeta, abstractmethod
 
-from optim import linear_warmup_and_linear_decayed_lr
-from optim import adam_wd_optimizer, adam_optimizer
+from .optim import linear_warmup_and_polynomial_decayed_lr
+from .optim import adam_wd_optimizer, adam_optimizer
 
 
 """
@@ -30,7 +30,7 @@ class ModelBaseboard(metaclass=ABCMeta):
     """
     """    
     def __init__(self, settings,
-                 learning_rate_schedule = linear_warmup_and_linear_decayed_lr,
+                 learning_rate_schedule = linear_warmup_and_polynomial_decayed_lr,
                  customized_optimizer = adam_optimizer):
         #
         self.learning_rate_schedule = learning_rate_schedule
@@ -214,9 +214,9 @@ class ModelBaseboard(metaclass=ABCMeta):
             if self.settings.optimizer_type == 'sgd':
                 self._opt = tf.train.GradientDescentOptimizer(self.learning_rate_tensor)
             elif self.settings.optimizer_type == 'momentum':
-                self._opt = tf.train.MomentumOptimizer(self.learning_rate_tensor, self.settings.momentum, use_nesterov=True)
+                self._opt = tf.train.MomentumOptimizer(self.learning_rate_tensor, self.settings.beta_1, use_nesterov=True)
             elif self.settings.optimizer_type == 'adam':
-                self._opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor, beta1 = self.settings.momentum)
+                self._opt = tf.train.AdamOptimizer(self.learning_rate_tensor, self.settings.beta_1, self.settings.beta_2)
             elif self.settings.optimizer_type == 'adam_wd':
                 self._opt = adam_wd_optimizer(self.settings, self.learning_rate_tensor)
             elif self.settings.optimizer_type == 'customized':
