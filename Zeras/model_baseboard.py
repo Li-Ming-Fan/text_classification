@@ -382,9 +382,9 @@ class ModelBaseboard(metaclass=ABCMeta):
             if self.settings.optimizer_type == 'sgd':
                 self._opt = tf.train.GradientDescentOptimizer(self.learning_rate_tensor)
             elif self.settings.optimizer_type == 'momentum':
-                self._opt = tf.train.MomentumOptimizer(self.learning_rate_tensor, self.settings.momentum, use_nesterov=True)
+                self._opt = tf.train.MomentumOptimizer(self.learning_rate_tensor, self.settings.beta_1, use_nesterov=True)
             elif self.settings.optimizer_type == 'adam':
-                self._opt = tf.train.AdamOptimizer(learning_rate = self.learning_rate_tensor, beta1 = self.settings.momentum)
+                self._opt = tf.train.AdamOptimizer(self.learning_rate_tensor, self.settings.beta_1, self.settings.beta_2)
             elif self.settings.optimizer_type == 'adam_wd':
                 self._opt = adam_wd_optimizer(self.settings, self.learning_rate_tensor)
             elif self.settings.optimizer_type == 'customized':
@@ -456,7 +456,7 @@ class ModelBaseboard(metaclass=ABCMeta):
                     if item in v.name: return True
                 return False
             #
-            if self.settings.reg_lambda > 0.0:
+            if self.settings.reg_lambda > 0.0 and self.settings.optimizer_type != 'adam_wd':
                 loss_reg = tf.add_n( [tf.nn.l2_loss(v) for v in self.trainable_vars
                                      if not is_excluded(v)] )
                 loss_reg = tf.multiply(loss_reg, self.settings.reg_lambda)
