@@ -1,5 +1,7 @@
 
 
+import re
+
 import tensorflow as tf
 from tensorflow.python.ops import state_ops
 
