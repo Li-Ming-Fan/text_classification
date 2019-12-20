@@ -42,7 +42,7 @@ pip install jieba
 
 Using package Zeras for model baseboard:
 
-pip install Zeras==0.4.1
+pip install Zeras==0.4.2
 
 
 
