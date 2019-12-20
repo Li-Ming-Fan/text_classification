@@ -251,7 +251,7 @@ class ModelBaseboard(metaclass=ABCMeta):
                     if item in v.name: return True
                 return False
             #
-            if self.settings.reg_lambda > 0.0:
+            if self.settings.reg_lambda > 0.0 and self.settings.optimizer_type != 'adam_wd':
                 loss_reg = tf.add_n( [tf.nn.l2_loss(v) for v in self.trainable_vars
                                      if not is_excluded(v)] )
                 loss_reg = tf.multiply(loss_reg, self.settings.reg_lambda)

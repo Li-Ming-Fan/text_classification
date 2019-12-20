@@ -41,7 +41,7 @@ class ModelSettingsBaseboard(object):
         self.grad_clip = 8.0  # 0.0, 5.0, 8.0, 2.0
         self.keep_prob = 0.8  # 1.0, 0.7, 0.5
 
-        self.optimizer_type = 'adam'  # adam, adam_wd, momentum, sgd, customized
+        self.optimizer_type = 'adam_wd'  # adam, adam_wd, momentum, sgd, customized
         self.beta_1 = 0.9
         self.beta_2 = 0.999
         self.learning_rate_base = 0.001   #        
