@@ -32,7 +32,7 @@ class ModelSettings(ModelSettingsBaseboard):
         # vocab
         self.vocab = None
         self.emb_dim = 64
-        self.emb_tune = 0  # 1 for tune, 0 for not
+        self.emb_tune = 1  # 1 for tune, 0 for not
         self.tokens_file = './vocab/vocab_tokens.txt'
         self.emb_file = None
 
