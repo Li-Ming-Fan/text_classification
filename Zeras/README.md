@@ -1,16 +1,28 @@
 # Zeras
 
-A simple tensorflow wrapper
+A package of deep-learning utilities.
 
 
 ## Description
+
+Common to tf and torch:
 
 ```
 from Zeras.data_parallelism import DataParallelism, get_files_with_ext
 from Zeras.data_batcher import DataBatcher
 
+from Zeras.vocab import Vocab
+
 from Zeras.model_settings_baseboard import ModelSettingsBaseboard
-from Zeras.model_baseboard import ModelBaseboard, initialize_with_pretrained_ckpt
+```
+
+
+Specific to tf:
+
+```
+from Zeras.model_baseboard import ModelBaseboard
+from Zeras.model_baseboard import initialize_from_ckpt
+from Zeras.model_baseboard import remove_from_trainable_variables
 
 from Zeras.optim import linear_warmup_and_exp_decayed_lr
 from Zeras.optim import linear_warmup_and_polynomial_decayed_lr
@@ -20,8 +32,6 @@ from Zeras.optim import AdamWeightDecayOptimizer
 
 import Zeras.zoo_nn as zrs_nn
 import Zeras.zoo_layers as zrs_layers
-
-from Zeras.vocab import Vocab
 ```
 
 

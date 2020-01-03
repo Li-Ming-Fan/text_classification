@@ -5,7 +5,7 @@
 # @copyright Copyright (c) 2019, Ming-Fan Li.
 # @license MIT
 
-""" A simple tensorflow wrapper.
+""" A package of deep-learning utilities.
 """
 
 from __future__ import with_statement, absolute_import

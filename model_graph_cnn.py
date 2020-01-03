@@ -116,6 +116,10 @@ class ModelCNN(ModelBaseboard):
         #
         print(normed_logits)
         #
+        # from Zeras.model_baseboard import remove_from_trainable_variables
+        # remove_from_trainable_variables(["embedding"])
+        # remove_from_trainable_variables(["cnn"])
+        #
         output_tensors = {"normed_logits": normed_logits,
                           "logits": logits }
         #   

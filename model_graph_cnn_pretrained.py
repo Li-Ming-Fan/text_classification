@@ -7,7 +7,8 @@ Created on Sat Aug 17 09:30:05 2019
 """
 
 import tensorflow as tf
-from Zeras.model_baseboard import ModelBaseboard, initialize_with_pretrained_ckpt
+from Zeras.model_baseboard import ModelBaseboard
+from Zeras.model_baseboard import initialize_from_ckpt
 
 
 def conv1d_layer(seq_emb, params):
@@ -123,11 +124,11 @@ class ModelCNN(ModelBaseboard):
 
         # load pretrained
         dir_pretrained = self.settings.model_dir_best.replace("model_cnn_best", "pretrained")
-        initialize_with_pretrained_ckpt(dir_pretrained,
-                                        name_replace_dict={"cnn": "cnn_new",
-                                                           "embedding": "embedding",
-                                                           "score": "score" },
-                                        non_trainable_names=["embedding", "cnn_new"])
+        initialize_from_ckpt(dir_pretrained,
+                             name_replacement_dict={"cnn": "cnn_new",
+                                                    "embedding": "embedding",
+                                                    "score": "score" },
+                             non_trainable_names=["embedding", "cnn_new"])
         #
 
         return output_tensors

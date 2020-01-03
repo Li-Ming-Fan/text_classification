@@ -1,4 +1,5 @@
 # Byte-compiled / optimized / DLL files
+.vscode/
 __pycache__/
 data_examples/
 vocab/
@@ -6,3 +7,4 @@ log/
 model_*/
 temp*
 data_check_*/
+task_*/

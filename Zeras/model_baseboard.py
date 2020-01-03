@@ -336,7 +336,7 @@ class ModelBaseboard(metaclass=ABCMeta):
         #
         # load
         # if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
-        if dir_ckpt is not None: self.load_ckpt(dir_ckpt)
+        if dir_ckpt is not None: self.load_vars_from_ckpt(dir_ckpt)
         #
         
     #
@@ -565,7 +565,7 @@ class ModelBaseboard(metaclass=ABCMeta):
         #
         # load
         # if dir_ckpt is None: dir_ckpt = self.model_dir + '_best'
-        if dir_ckpt is not None: self.load_ckpt(dir_ckpt)
+        if dir_ckpt is not None: self.load_vars_from_ckpt(dir_ckpt)
         #
     
     #
@@ -602,7 +602,7 @@ class ModelBaseboard(metaclass=ABCMeta):
         self._saver.save(self._sess, os.path.join(model_dir, model_name),
                          global_step = step)
     
-    def load_ckpt(self, dir_ckpt):
+    def load_all_from_ckpt(self, dir_ckpt):
         #
         ckpt = tf.train.get_checkpoint_state(dir_ckpt)        
         if ckpt and ckpt.model_checkpoint_path:
@@ -615,6 +615,25 @@ class ModelBaseboard(metaclass=ABCMeta):
             str_info = 'loading ckpt failed: ckpt loading from %s' % dir_ckpt
             self.logger.info(str_info)
             print(str_info)
+
+    #
+    def load_vars_from_ckpt(self, dir_ckpt):
+        #
+        ckpt = tf.train.get_checkpoint_state(dir_ckpt)        
+        if ckpt and ckpt.model_checkpoint_path:
+            pass
+        else:
+            str_info = 'loading ckpt failed: ckpt loading from %s' % dir_ckpt
+            self.logger.info(str_info)
+            print(str_info)
+            return
+        #
+        with self._graph.as_default():
+            assignment_map = get_assignment_map_samename(dir_ckpt)
+            tf.train.init_from_checkpoint(dir_ckpt, assignment_map)
+            #
+            self._sess.run(tf.global_variables_initializer())
+            #
             
     #
     # predict, pb
@@ -710,16 +729,14 @@ class ModelBaseboard(metaclass=ABCMeta):
         #
 
 #
-def get_assignment_map_from_ckpt(init_ckpt,
-                                 name_replace_dict={},
-                                 trainable_vars=None):
-    """ name_replace_dict = { old_name_str_chunk: new_name_str_chunk }
+def get_assignment_map_samename(init_ckpt, list_vars=None):
     """
-    if trainable_vars is None:
-        trainable_vars = tf.trainable_variables()
+    """
+    if list_vars is None:
+        list_vars = tf.global_variables()
     #
     name_to_variable = collections.OrderedDict()
-    for var in trainable_vars:
+    for var in list_vars:
         name = var.name
         m = re.match("^(.*):\\d+$", name)
         if m is not None:
@@ -734,7 +751,41 @@ def get_assignment_map_from_ckpt(init_ckpt,
     for x in ckpt_vars:
         (name, var) = (x[0], x[1])
         #
-        for k, v in name_replace_dict.items():
+        if name not in name_to_variable:
+            continue
+        #
+        assignment_map[name] = name
+        print("assigned_variable name: %s" % name)
+        #
+    
+    return assignment_map
+
+#
+def get_assignment_map_replaced(init_ckpt,
+                                name_replacement_dict={},
+                                list_vars=None):
+    """ name_replacement_dict = { old_name_str_chunk: new_name_str_chunk }
+    """
+    if list_vars is None:
+        list_vars = tf.global_variables()
+    #
+    name_to_variable = collections.OrderedDict()
+    for var in list_vars:
+        name = var.name
+        m = re.match("^(.*):\\d+$", name)
+        if m is not None:
+            name = m.group(1)
+        name_to_variable[name] = var
+        #
+    
+    #
+    ckpt_vars = tf.train.list_variables(init_ckpt)
+    # 
+    assignment_map = collections.OrderedDict()
+    for x in ckpt_vars:
+        (name, var) = (x[0], x[1])
+        #
+        for k, v in name_replacement_dict.items():
             if k in name:
                 name_new = name.replace(k, v)
                 break
@@ -751,13 +802,10 @@ def get_assignment_map_from_ckpt(init_ckpt,
     
     return assignment_map
 
-def remove_from_trainable_variables(non_trainable_names,
-                                    trainable_vars=None,
-                                    graph=None):
+def remove_from_trainable_variables(non_trainable_names, trainable_vars=None):
     """
     """
-    if graph is None:
-        graph = tf.get_default_graph()
+    graph = tf.get_default_graph()
     #
     if trainable_vars is None:
         trainable_vars = graph.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES)
@@ -776,25 +824,24 @@ def remove_from_trainable_variables(non_trainable_names,
         #
     #
         
-def initialize_with_pretrained_ckpt(init_ckpt,                                    
-                                    name_replace_dict={},
-                                    non_trainable_names=[],                                    
-                                    assignment_map=None,
-                                    trainable_vars=None,
-                                    graph=None):
-    """ name_replace_dict = { old_name_str_chunk: new_name_str_chunk }
+def initialize_from_ckpt(init_ckpt,                                    
+                         name_replacement_dict={},
+                         non_trainable_names=[],
+                         list_vars=None,                                  
+                         assignment_map=None):
+    """ name_replacement_dict = { old_name_str_chunk: new_name_str_chunk }
         non_trainable_names = ["bert", "word_embeddings"]  # for example
     """
     if assignment_map is None:
-        assignment_map = get_assignment_map_from_ckpt(init_ckpt,
-                                                      name_replace_dict,
-                                                      trainable_vars)
+        assignment_map = get_assignment_map_replaced(init_ckpt,
+                                                     name_replacement_dict,
+                                                     list_vars)
     #
     # assign
     tf.train.init_from_checkpoint(init_ckpt, assignment_map)
     #
     # tune or not
-    remove_from_trainable_variables(non_trainable_names, trainable_vars, graph)
+    remove_from_trainable_variables(non_trainable_names, list_vars)
     #
 
 #
