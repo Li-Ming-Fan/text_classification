@@ -53,8 +53,8 @@ class DataBatcher(object):
     #    
     def __init__(self, example_gen_or_list, batch_standardizer,
                  batch_size, single_pass, with_bucket=False, worker_type="thread",
-                 num_worker_example_single=1, num_workers_batch_single=3,
-                 num_worker_example_multi=12, num_workers_batch_multi=12,
+                 num_workers_example_single=1, num_workers_batch_single=3,
+                 num_workers_example_multi=12, num_workers_batch_multi=12,
                  bucketing_cahce_size=10000, batch_queue_max=300):
         """
         """
@@ -70,10 +70,10 @@ class DataBatcher(object):
         # queue
         self.single_pass = single_pass
         if single_pass:
-            self.num_workers_example = num_worker_example_single
+            self.num_workers_example = num_workers_example_single
             self.num_workers_batch = num_workers_batch_single            
         else:
-            self.num_workers_example = num_worker_example_multi
+            self.num_workers_example = num_workers_example_multi
             self.num_workers_batch = num_workers_batch_multi
         #
         self.bucketing_cache_size = bucketing_cahce_size
