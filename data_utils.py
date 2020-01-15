@@ -129,8 +129,8 @@ def standardize_list_seqs(x, min_seq_len=5, max_seq_len=100):
         if d > 0:
             item_n.extend([0] * d)  # pad_id, 0
         elif d < 0:
-            item_n = item_n[0:max_seq_len]
-            l = max_seq_len
+            item_n = item_n[0:padded_len]
+            l = padded_len
         #
         x_padded.append(item_n)
         x_len.append(l)

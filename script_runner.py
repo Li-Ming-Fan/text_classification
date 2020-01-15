@@ -28,7 +28,7 @@ def parse_args():
     #
     model_related = parser.add_argument_group('model related settings')    
     model_related.add_argument('--model_tag', type=str,
-                               default = 'cnn', help='model_tag')
+                               default = 'rnn', help='model_tag')
     #
     data_related = parser.add_argument_group('data related settings')
     data_related.add_argument('--dir_examples', type=str,
