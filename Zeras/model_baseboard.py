@@ -109,7 +109,7 @@ class ModelBaseboard(metaclass=ABCMeta):
             self.logger = settings.logger
         else:
             #
-            str_datetime = time.strftime("%Y-%m-%d-%H-%M")
+            str_datetime = time.strftime("%Y-%m-%d-%H-%M-%S")
             log_path = os.path.join(settings.log_dir, settings.model_name + "_" + str_datetime +".txt")
             self.log_path = log_path
             self.logger = self.create_logger(log_path)
@@ -134,7 +134,7 @@ class ModelBaseboard(metaclass=ABCMeta):
         """
         logger = logging.getLogger(log_path)  # use log_path as log_name
         logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(log_path)
+        handler = logging.FileHandler(log_path, encoding='utf-8') 
         handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')

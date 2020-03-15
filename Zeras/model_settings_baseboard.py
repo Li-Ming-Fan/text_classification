@@ -108,7 +108,7 @@ class ModelSettingsBaseboard(object):
              self.pb_file = os.path.join(self.model_dir_best, 'model_frozen.pb')
         #
         # logger
-        str_datetime = time.strftime("%Y-%m-%d-%H-%M")
+        str_datetime = time.strftime("%Y-%m-%d-%H-%M-%S")
         if self.log_path is None: self.log_path = os.path.join(
                 self.log_dir, self.model_name + "_" + str_datetime +".txt")
         #
@@ -124,7 +124,7 @@ class ModelSettingsBaseboard(object):
         """
         logger = logging.getLogger(log_path)  # use log_path as log_name
         logger.setLevel(logging.INFO)
-        handler = logging.FileHandler(log_path)
+        handler = logging.FileHandler(log_path, encoding='utf-8') 
         handler.setLevel(logging.INFO)
         formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
         # formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
